@@ -1,3 +1,3 @@
-FROM mongo:$MONGODB_VERSION
+FROM mongo:latest
 
 COPY mongod.conf /etc/mongod.conf

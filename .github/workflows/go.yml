@@ -18,15 +18,11 @@ jobs:
       with:
         go-version: 1.16.x
 
-    - name: Set up Docker
-      uses: actions/setup-docker@v1
-
-    - name: Build MongoDB image
-      run: |
-        docker build \
-          --build-arg MONGODB_VERSION=${{ env.MONGODB_VERSION }} \
-          -t mongodb:${{ env.MONGODB_VERSION }} \
-          -f Dockerfile .
+    - name: Create mongo Docker container
+      uses: DigiPie/mongo-action@v2.0.0
+      with:
+        image_version: latest
+        port: 27017
 
     - name: Start MongoDB container
       run: |
