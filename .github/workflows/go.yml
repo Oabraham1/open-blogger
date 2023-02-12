@@ -34,5 +34,5 @@ jobs:
       run: |
         docker stop open-blogger_mongodb_1
         docker rm open-blogger_mongodb_1
-        docker stop open_blogger_default
-        docker rm open_blogger_default
+        docker stop open_blogger
+        docker rm open_blogger
