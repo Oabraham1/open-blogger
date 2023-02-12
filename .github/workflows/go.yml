@@ -22,13 +22,6 @@ jobs:
       run: |
         make start-mongodb
 
-    - name: Wait for MongoDB to start
-      run: |
-        until docker exec mongodb mongo --eval 'quit(db.runCommand({ ping: 1 }).ok ? 0 : 2)' &>/dev/null; do
-          echo 'Waiting for MongoDB to start...'
-          sleep 1
-        done
-
     - name: Install dependencies
       run: |
         go mod download
