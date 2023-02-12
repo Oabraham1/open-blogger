@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	user "github.com/oabraham1/open-blogger/server/users/internal/user"
-	Utils "github.com/oabraham1/open-blogger/server/users/utils"
+	user "github.com/oabraham1/open-blogger/server/internal/models/user"
+	Utils "github.com/oabraham1/open-blogger/server/utils"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"

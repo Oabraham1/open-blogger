@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 
-	Utils "github.com/oabraham1/open-blogger/server/users/utils"
+	Utils "github.com/oabraham1/open-blogger/server/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
