@@ -25,21 +25,7 @@ func NewUser(id, username, firstName, lastName, email, imageURL string) *User {
 		Email:     email,
 		ImageURL:  imageURL,
 		Created:   time.Now(),
-		Updated:   time.Now(),
 	}
-}
-
-func (user *User) UpdateUser(update *User) error {
-	if user == nil || update == nil {
-		return errors.New("user update failed")
-	}
-	user.Username = update.Username
-	user.FirstName = update.FirstName
-	user.LastName = update.LastName
-	user.Email = update.Email
-	user.ImageURL = update.ImageURL
-	user.Updated = time.Now()
-	return nil
 }
 
 func (user *User) Validate() error {

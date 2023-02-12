@@ -2,7 +2,6 @@ package models
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -28,23 +27,6 @@ func TestNewUser(t *testing.T) {
 	require.Greater(t, len(user.LastName), 0)
 	require.Greater(t, len(user.Email), 0)
 	require.Greater(t, len(user.ImageURL), 0)
-	require.Greater(t, time.Now(), user.Created)
-}
-
-func TestUpdateUser(t *testing.T) {
-	user := CreateUser()
-	update := CreateUser()
-	update.Username = "updatedUser"
-	update.ImageURL = "http://updateduser.com/image"
-
-	err := user.UpdateUser(update)
-	require.Nil(t, err)
-	require.Equal(t, user.Username, update.Username)
-	require.Equal(t, user.FirstName, update.FirstName)
-	require.Equal(t, user.LastName, update.LastName)
-	require.Equal(t, user.Email, update.Email)
-	require.Equal(t, user.ImageURL, update.ImageURL)
-	require.Greater(t, time.Now(), user.Updated)
 }
 
 func TestValidate(t *testing.T) {
