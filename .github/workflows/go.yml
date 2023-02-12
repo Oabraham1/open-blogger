@@ -18,12 +18,6 @@ jobs:
       with:
         go-version: 1.16.x
 
-    - name: Create mongo Docker container
-      uses: DigiPie/mongo-action@v2.0.0
-      with:
-        image_version: latest
-        port: 27017
-
     - name: Start MongoDB container
       run: |
         make start-mongodb
