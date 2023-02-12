@@ -9,7 +9,7 @@
 # the `language` matrix defined below to confirm you have the correct set of
 # supported CodeQL languages.
 #
-name: "CodeQL Go"
+name: "CodeQL CI"
 
 on:
   push:
@@ -66,6 +66,10 @@ jobs:
     # - run: |
     #   echo "Run, Build Application using script"
     #   ./location_of_script_within_repo/buildscript.sh
+
+    - name: Test Go Code
+      run: |
+        go test ./...
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v2
