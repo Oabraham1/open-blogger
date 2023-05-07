@@ -66,9 +66,9 @@ jobs:
       #   echo "Run, Build Application using script"
       #   ./location_of_script_within_repo/buildscript.sh
 
-      - name: Test Go Code
+      - name: Test Typescript Code
         run: |
-          go test ./...
+          vitest
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
