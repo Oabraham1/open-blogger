@@ -27,7 +27,7 @@ h2 {
   font-size: 14px;
 }
 pre {
-  font: 12px/1.4 Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font: 12px/1.4 Consolas, 'Liberation Mono', Menlo, Courier, monospace;
   margin: 0;
   padding: 0;
   -moz-tab-size: 2;
@@ -75,7 +75,7 @@ a:hover {
   display: block;
 }
 .clearfix:after {
-  content: "";
+  content: '';
   display: block;
   height: 0;
   clear: both;
@@ -103,7 +103,7 @@ a:hover {
 }
 
 .fraction {
-  font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace;
   font-size: 10px;
   color: #555;
   background: #e8e8e8;
