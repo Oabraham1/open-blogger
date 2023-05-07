@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc",
     "dev-server": "tsx watch server/src/server/app.ts",
-    "test": "jest"
+    "test-server": "jest"
   },
   "repository": {
     "type": "git",
