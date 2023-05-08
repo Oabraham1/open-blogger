@@ -4,7 +4,7 @@
   "description": "An open-source publishing platform",
   "scripts": {
     "build": "tsc",
-    "dev-server": "tsx watch server/src/server/app.ts",
+    "dev-server": "tsx watch server/app.ts",
     "test-server": "jest"
   },
   "repository": {
