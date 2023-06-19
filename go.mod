@@ -3,7 +3,7 @@ module github.com/Oabraham1/open-blogger
 go 1.19
 
 require (
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.8.4
 	go.mongodb.org/mongo-driver v1.11.7
 )
 
