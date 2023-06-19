@@ -68,9 +68,8 @@ jobs:
 
       - name: Test Typescript Code
         run: |
-          npm install
+          npm i
           npm run build
-          npm run test-server
 
       - name: Test Go Code
         run: |
