@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['javascript']
+        language: ['javascript', 'go']
         # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby' ]
         # Learn more about CodeQL language support at https://aka.ms/codeql-docs/language-support
 
@@ -71,6 +71,10 @@ jobs:
           npm install
           npm run build
           npm run test-server
+
+      - name: Test Go Code
+        run: |
+          go test ./...
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
