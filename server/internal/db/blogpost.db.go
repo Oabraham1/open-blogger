@@ -1,8 +1,6 @@
 package db
 
 import (
-	"log"
-
 	"github.com/Oabraham1/open-blogger/server/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -33,7 +31,6 @@ func (blogPostDB *BlogPostDB) CreateNewBlogPost(post models.BlogPost) (primitive
 }
 
 func (blogPostDB *BlogPostDB) FindBlogPost(filter bson.M) (*models.BlogPost, error) {
-	log.Println(filter)
 	blogPost := blogPostDB.MongoDB.FindSingleDocument(blogPostDB.Collection, filter)
 	if blogPost.Err() != nil {
 		return nil, blogPost.Err()
