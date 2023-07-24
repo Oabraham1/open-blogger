@@ -1,3 +1,7 @@
 package auth
 
-func Login()
+import "fmt"
+
+func Login() {
+	fmt.Println("Login")
+}
