@@ -69,7 +69,7 @@ jobs:
       - name: Test Typescript Code
         run: |
           cd client && npm i
-          cd client && npm run build
+          npm run build
 
       - name: Test Go Code
         run: |
