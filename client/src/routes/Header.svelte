@@ -6,8 +6,8 @@
 
 <header>
 	<div class="corner">
-		<a href="https://kit.svelte.dev">
-			<img src={logo} alt="SvelteKit" />
+		<a href="/">
+			<p>Open Blogger</p>
 		</a>
 	</div>
 
@@ -45,7 +45,7 @@
 	}
 
 	.corner {
-		width: 3em;
+		width: 8em;
 		height: 3em;
 	}
 
@@ -61,6 +61,13 @@
 		width: 2em;
 		height: 2em;
 		object-fit: contain;
+	}
+
+	.corner p {
+		font-weight: 700;
+		font-size: 0.8rem;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
 	}
 
 	nav {
@@ -125,5 +132,6 @@
 
 	a:hover {
 		color: var(--color-theme-1);
+		text-decoration: none;
 	}
 </style>
