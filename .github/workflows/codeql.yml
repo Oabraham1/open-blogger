@@ -70,6 +70,7 @@ jobs:
         run: |
           cd client && npm i
           npm run build
+          npm run test:unit
 
       - name: Test Go Code
         run: |
