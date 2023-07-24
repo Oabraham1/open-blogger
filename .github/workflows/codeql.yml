@@ -68,12 +68,12 @@ jobs:
 
       - name: Test Typescript Code
         run: |
-          npm i
-          npm run build
+          cd client && npm i
+          cd client && npm run build
 
       - name: Test Go Code
         run: |
-          go test ./...
+          cd server && go test ./...
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
