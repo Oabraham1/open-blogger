@@ -6,7 +6,16 @@ stop-mongodb:
 	docker rm mongodb
 
 start-server:
-	npm run dev-server
+	cd server && go run cmd/main.go
 
 test-server:
-	npm run test-server
+	cd server && go test -v ./...
+
+start-client:
+	cd client && npm run dev -- --open
+
+test-client-unit:
+	cd client && npm run test:unit
+
+test-client-int:
+	cd client && npm run test:integration
