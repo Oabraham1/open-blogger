@@ -9,7 +9,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type Authenticator struct{
+type Authenticator struct {
 	*oidc.Provider
 	oauth2.Config
 }

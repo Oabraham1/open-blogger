@@ -8,8 +8,8 @@ import (
 )
 
 type BlogPostDB struct {
-	MongoDB 	*MongoDB
-	Collection 	*mongo.Collection
+	MongoDB    *MongoDB
+	Collection *mongo.Collection
 }
 
 func NewBlogPostDB() *BlogPostDB {
@@ -51,7 +51,7 @@ func (blogPostDB *BlogPostDB) FindAllBlogPosts(filter bson.M) ([]*models.BlogPos
 	}
 
 	defer curr.Close(blogPostDB.MongoDB.ctx)
-	
+
 	blogPosts := make([]*models.BlogPost, 0)
 
 	for curr.Next(blogPostDB.MongoDB.ctx) {

@@ -5,6 +5,8 @@ go 1.20
 require (
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/gin-gonic/gin v1.9.1
+	github.com/google/uuid v1.3.0
+	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.8.4
 	go.mongodb.org/mongo-driver v1.12.0
 	golang.org/x/oauth2 v0.10.0

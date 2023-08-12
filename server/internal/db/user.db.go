@@ -7,8 +7,8 @@ import (
 )
 
 type UserDB struct {
-	MongoDB 	*MongoDB
-	Collection 	*mongo.Collection
+	MongoDB    *MongoDB
+	Collection *mongo.Collection
 }
 
 func NewUserDB() *UserDB {

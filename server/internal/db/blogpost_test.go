@@ -24,10 +24,10 @@ func TestCreateNewBlogBost(t *testing.T) {
 		mt.AddMockResponses(mtest.CreateSuccessResponse())
 
 		blogPostID, err := blogPostDB.CreateNewBlogPost(models.BlogPost{
-			ID: 	primitive.NewObjectID(),
-			Title:   "Test Title",
-			Content: "Test Content",
-			Author: "Test Author",
+			ID:       primitive.NewObjectID(),
+			Title:    "Test Title",
+			Content:  "Test Content",
+			Author:   "Test Author",
 			AuthorID: "Test Author ID",
 		})
 		log.Println(blogPostID)
@@ -50,10 +50,10 @@ func TestFindBlogPost(t *testing.T) {
 			Collection: blogPostCollection,
 		}
 		expectedBlogPost := models.BlogPost{
-			ID: 	primitive.NewObjectID(),
-			Title:   "Test Title",
-			Content: "Test Content",
-			Author: "Test Author",
+			ID:       primitive.NewObjectID(),
+			Title:    "Test Title",
+			Content:  "Test Content",
+			Author:   "Test Author",
 			AuthorID: "Test Author ID",
 		}
 
@@ -64,7 +64,7 @@ func TestFindBlogPost(t *testing.T) {
 			{Key: "author", Value: expectedBlogPost.Author},
 			{Key: "authorID", Value: expectedBlogPost.AuthorID},
 		}))
-		
+
 		blogPost, err := blogPostDB.FindBlogPost(bson.M{
 			"ID": expectedBlogPost.ID,
 		})
@@ -127,10 +127,10 @@ func TestUpdateBlogPost(t *testing.T) {
 			Collection: blogPostCollection,
 		}
 		expectedBlogPost := models.BlogPost{
-			ID: 	primitive.NewObjectID(),
-			Title:   "Title",
-			Content: "Test Content",
-			Author: "Test Author",
+			ID:       primitive.NewObjectID(),
+			Title:    "Title",
+			Content:  "Test Content",
+			Author:   "Test Author",
 			AuthorID: "Test Author ID",
 		}
 		mt.AddMockResponses(bson.D{
