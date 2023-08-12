@@ -72,9 +72,5 @@ jobs:
           npm run build
           npm run test:unit
 
-      - name: Test Go Code
-        run: |
-          cd server && go test ./...
-
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2

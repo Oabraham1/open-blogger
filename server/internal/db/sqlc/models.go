@@ -3,8 +3,8 @@
 package db
 
 import (
-	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -29,36 +29,36 @@ func (e *Status) Scan(src interface{}) error {
 }
 
 type Comment struct {
-	ID       int32          `json:"id"`
-	UserID   uuid.NullUUID  `json:"user_id"`
-	Username sql.NullString `json:"username"`
-	PostID   sql.NullInt32  `json:"post_id"`
+	ID       int32     `json:"id"`
+	UserID   uuid.UUID `json:"user_id"`
+	Username string    `json:"username"`
+	PostID   int32     `json:"post_id"`
 	// Content of the comment
-	Body      string       `json:"body"`
-	CreatedAt sql.NullTime `json:"created_at"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Post struct {
 	ID    int32  `json:"id"`
 	Title string `json:"title"`
 	// Content of the blog post
-	Body         string         `json:"body"`
-	UserID       uuid.NullUUID  `json:"user_id"`
-	Username     sql.NullString `json:"username"`
-	Status       Status         `json:"status"`
-	Category     string         `json:"category"`
-	CreatedAt    sql.NullTime   `json:"created_at"`
-	PublishedAt  sql.NullTime   `json:"published_at"`
-	LastModified sql.NullTime   `json:"last_modified"`
+	Body         string    `json:"body"`
+	UserID       uuid.UUID `json:"user_id"`
+	Username     string    `json:"username"`
+	Status       Status    `json:"status"`
+	Category     string    `json:"category"`
+	CreatedAt    time.Time `json:"created_at"`
+	PublishedAt  time.Time `json:"published_at"`
+	LastModified time.Time `json:"last_modified"`
 }
 
 type User struct {
-	ID        uuid.UUID    `json:"id"`
-	Username  string       `json:"username"`
-	Password  string       `json:"password"`
-	Email     string       `json:"email"`
-	FirstName string       `json:"first_name"`
-	LastName  string       `json:"last_name"`
-	Interests []uuid.UUID  `json:"interests"`
-	CreatedAt sql.NullTime `json:"created_at"`
+	ID        uuid.UUID `json:"id"`
+	Username  string    `json:"username"`
+	Password  string    `json:"password"`
+	Email     string    `json:"email"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	Interests []string  `json:"interests"`
+	CreatedAt time.Time `json:"created_at"`
 }
