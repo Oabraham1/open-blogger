@@ -16,8 +16,8 @@ SELECT id, title, body, status, category, created_at, published_at, last_modifie
 -- name: UpdateUserInterestsByID :exec
 UPDATE users SET interests = $1 WHERE id = $2;
 
--- name: UpdatePostBodyByUserID :exec
-UPDATE posts SET body = $1 WHERE user_id = $2;
+-- name: UpdatePostBodyByPostIDAndUserID :one
+UPDATE posts SET body = $1 WHERE id = $2 AND user_id = $3 RETURNING id, title, body, status, category, created_at, published_at, last_modified;
 
 -- name: DeleteUserByID :exec
 DELETE FROM users WHERE id = $1;

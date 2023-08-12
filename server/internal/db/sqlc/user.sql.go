@@ -211,18 +211,41 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (GetUs
 	return i, err
 }
 
-const updatePostBodyByUserID = `-- name: UpdatePostBodyByUserID :exec
-UPDATE posts SET body = $1 WHERE user_id = $2
+const updatePostBodyByPostIDAndUserID = `-- name: UpdatePostBodyByPostIDAndUserID :one
+UPDATE posts SET body = $1 WHERE id = $2 AND user_id = $3 RETURNING id, title, body, status, category, created_at, published_at, last_modified
 `
 
-type UpdatePostBodyByUserIDParams struct {
+type UpdatePostBodyByPostIDAndUserIDParams struct {
 	Body   string    `json:"body"`
+	ID     int32     `json:"id"`
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) UpdatePostBodyByUserID(ctx context.Context, arg UpdatePostBodyByUserIDParams) error {
-	_, err := q.db.ExecContext(ctx, updatePostBodyByUserID, arg.Body, arg.UserID)
-	return err
+type UpdatePostBodyByPostIDAndUserIDRow struct {
+	ID           int32     `json:"id"`
+	Title        string    `json:"title"`
+	Body         string    `json:"body"`
+	Status       Status    `json:"status"`
+	Category     string    `json:"category"`
+	CreatedAt    time.Time `json:"created_at"`
+	PublishedAt  time.Time `json:"published_at"`
+	LastModified time.Time `json:"last_modified"`
+}
+
+func (q *Queries) UpdatePostBodyByPostIDAndUserID(ctx context.Context, arg UpdatePostBodyByPostIDAndUserIDParams) (UpdatePostBodyByPostIDAndUserIDRow, error) {
+	row := q.db.QueryRowContext(ctx, updatePostBodyByPostIDAndUserID, arg.Body, arg.ID, arg.UserID)
+	var i UpdatePostBodyByPostIDAndUserIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Body,
+		&i.Status,
+		&i.Category,
+		&i.CreatedAt,
+		&i.PublishedAt,
+		&i.LastModified,
+	)
+	return i, err
 }
 
 const updateUserInterestsByID = `-- name: UpdateUserInterestsByID :exec

@@ -21,7 +21,7 @@ func createDummyPost(t *testing.T, userId uuid.UUID, username string) CreateNewP
 	}
 }
 
-func TestCreatePostCRUDOperations(t *testing.T) {
+func TestPostCRUDOperations(t *testing.T) {
 	userArg := createDummyUser("testUser123", "testUser@email.com")
 	user, err := testQueries.CreateNewUser(context.Background(), userArg)
 	require.NoError(t, err)
@@ -80,13 +80,12 @@ func TestCreatePostCRUDOperations(t *testing.T) {
 	/*
 		Test Update Post
 	*/
-	updatePost := UpdatePostBodyByUserIDParams{
+	updatePost := UpdatePostBodyByPostIDAndUserIDParams{
 		Body:   "This is an updated post",
 		UserID: arg.UserID,
+		ID:     post.ID,
 	}
-	err = testQueries.UpdatePostBodyByUserID(ctx, updatePost)
-	require.NoError(t, err)
-	updatedPost, err := testQueries.GetPostById(ctx, post.ID)
+	updatedPost, err := testQueries.UpdatePostBodyByPostIDAndUserID(ctx, updatePost)
 	require.NoError(t, err)
 	require.NotEmpty(t, updatedPost)
 	require.Equal(t, updatePost.Body, updatedPost.Body)
