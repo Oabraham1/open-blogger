@@ -5,7 +5,7 @@ package db
 
 import (
 	"context"
-	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -15,18 +15,18 @@ INSERT INTO comments (user_id, username, post_id, body, created_at) VALUES ($1, 
 `
 
 type CreateNewCommentParams struct {
-	UserID    uuid.NullUUID  `json:"user_id"`
-	Username  sql.NullString `json:"username"`
-	PostID    sql.NullInt32  `json:"post_id"`
-	Body      string         `json:"body"`
-	CreatedAt sql.NullTime   `json:"created_at"`
+	UserID    uuid.UUID `json:"user_id"`
+	Username  string    `json:"username"`
+	PostID    int32     `json:"post_id"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type CreateNewCommentRow struct {
-	ID        int32          `json:"id"`
-	Body      string         `json:"body"`
-	Username  sql.NullString `json:"username"`
-	CreatedAt sql.NullTime   `json:"created_at"`
+	ID        int32     `json:"id"`
+	Body      string    `json:"body"`
+	Username  string    `json:"username"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (q *Queries) CreateNewComment(ctx context.Context, arg CreateNewCommentParams) (CreateNewCommentRow, error) {
@@ -52,27 +52,27 @@ INSERT INTO posts (title, body, user_id, username, status, category, created_at,
 `
 
 type CreateNewPostParams struct {
-	Title        string         `json:"title"`
-	Body         string         `json:"body"`
-	UserID       uuid.NullUUID  `json:"user_id"`
-	Username     sql.NullString `json:"username"`
-	Status       Status         `json:"status"`
-	Category     string         `json:"category"`
-	CreatedAt    sql.NullTime   `json:"created_at"`
-	PublishedAt  sql.NullTime   `json:"published_at"`
-	LastModified sql.NullTime   `json:"last_modified"`
+	Title        string    `json:"title"`
+	Body         string    `json:"body"`
+	UserID       uuid.UUID `json:"user_id"`
+	Username     string    `json:"username"`
+	Status       Status    `json:"status"`
+	Category     string    `json:"category"`
+	CreatedAt    time.Time `json:"created_at"`
+	PublishedAt  time.Time `json:"published_at"`
+	LastModified time.Time `json:"last_modified"`
 }
 
 type CreateNewPostRow struct {
-	ID           int32          `json:"id"`
-	Title        string         `json:"title"`
-	Body         string         `json:"body"`
-	Username     sql.NullString `json:"username"`
-	Status       Status         `json:"status"`
-	Category     string         `json:"category"`
-	CreatedAt    sql.NullTime   `json:"created_at"`
-	PublishedAt  sql.NullTime   `json:"published_at"`
-	LastModified sql.NullTime   `json:"last_modified"`
+	ID           int32     `json:"id"`
+	Title        string    `json:"title"`
+	Body         string    `json:"body"`
+	Username     string    `json:"username"`
+	Status       Status    `json:"status"`
+	Category     string    `json:"category"`
+	CreatedAt    time.Time `json:"created_at"`
+	PublishedAt  time.Time `json:"published_at"`
+	LastModified time.Time `json:"last_modified"`
 }
 
 func (q *Queries) CreateNewPost(ctx context.Context, arg CreateNewPostParams) (CreateNewPostRow, error) {
@@ -116,15 +116,15 @@ SELECT id, title, username, body, status, category, created_at, published_at, la
 `
 
 type GetAllPostsRow struct {
-	ID           int32          `json:"id"`
-	Title        string         `json:"title"`
-	Username     sql.NullString `json:"username"`
-	Body         string         `json:"body"`
-	Status       Status         `json:"status"`
-	Category     string         `json:"category"`
-	CreatedAt    sql.NullTime   `json:"created_at"`
-	PublishedAt  sql.NullTime   `json:"published_at"`
-	LastModified sql.NullTime   `json:"last_modified"`
+	ID           int32     `json:"id"`
+	Title        string    `json:"title"`
+	Username     string    `json:"username"`
+	Body         string    `json:"body"`
+	Status       Status    `json:"status"`
+	Category     string    `json:"category"`
+	CreatedAt    time.Time `json:"created_at"`
+	PublishedAt  time.Time `json:"published_at"`
+	LastModified time.Time `json:"last_modified"`
 }
 
 func (q *Queries) GetAllPosts(ctx context.Context) ([]GetAllPostsRow, error) {
@@ -165,13 +165,13 @@ SELECT id, body, username, created_at FROM comments WHERE post_id = $1
 `
 
 type GetCommentsByPostIDRow struct {
-	ID        int32          `json:"id"`
-	Body      string         `json:"body"`
-	Username  sql.NullString `json:"username"`
-	CreatedAt sql.NullTime   `json:"created_at"`
+	ID        int32     `json:"id"`
+	Body      string    `json:"body"`
+	Username  string    `json:"username"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
-func (q *Queries) GetCommentsByPostID(ctx context.Context, postID sql.NullInt32) ([]GetCommentsByPostIDRow, error) {
+func (q *Queries) GetCommentsByPostID(ctx context.Context, postID int32) ([]GetCommentsByPostIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, getCommentsByPostID, postID)
 	if err != nil {
 		return nil, err
@@ -204,15 +204,15 @@ SELECT id, title, body, username, status, category, created_at, published_at, la
 `
 
 type GetPostByIdRow struct {
-	ID           int32          `json:"id"`
-	Title        string         `json:"title"`
-	Body         string         `json:"body"`
-	Username     sql.NullString `json:"username"`
-	Status       Status         `json:"status"`
-	Category     string         `json:"category"`
-	CreatedAt    sql.NullTime   `json:"created_at"`
-	PublishedAt  sql.NullTime   `json:"published_at"`
-	LastModified sql.NullTime   `json:"last_modified"`
+	ID           int32     `json:"id"`
+	Title        string    `json:"title"`
+	Body         string    `json:"body"`
+	Username     string    `json:"username"`
+	Status       Status    `json:"status"`
+	Category     string    `json:"category"`
+	CreatedAt    time.Time `json:"created_at"`
+	PublishedAt  time.Time `json:"published_at"`
+	LastModified time.Time `json:"last_modified"`
 }
 
 func (q *Queries) GetPostById(ctx context.Context, id int32) (GetPostByIdRow, error) {
@@ -233,19 +233,19 @@ func (q *Queries) GetPostById(ctx context.Context, id int32) (GetPostByIdRow, er
 }
 
 const getPostsByCategory = `-- name: GetPostsByCategory :many
-SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE category = ANY($1)
+SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE category = $1
 `
 
 type GetPostsByCategoryRow struct {
-	ID           int32          `json:"id"`
-	Title        string         `json:"title"`
-	Body         string         `json:"body"`
-	Username     sql.NullString `json:"username"`
-	Status       Status         `json:"status"`
-	Category     string         `json:"category"`
-	CreatedAt    sql.NullTime   `json:"created_at"`
-	PublishedAt  sql.NullTime   `json:"published_at"`
-	LastModified sql.NullTime   `json:"last_modified"`
+	ID           int32     `json:"id"`
+	Title        string    `json:"title"`
+	Body         string    `json:"body"`
+	Username     string    `json:"username"`
+	Status       Status    `json:"status"`
+	Category     string    `json:"category"`
+	CreatedAt    time.Time `json:"created_at"`
+	PublishedAt  time.Time `json:"published_at"`
+	LastModified time.Time `json:"last_modified"`
 }
 
 func (q *Queries) GetPostsByCategory(ctx context.Context, category string) ([]GetPostsByCategoryRow, error) {

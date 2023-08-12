@@ -2,7 +2,7 @@
 INSERT INTO posts (title, body, user_id, username, status, category, created_at, published_at, last_modified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, title, body, username, status, category, created_at, published_at, last_modified;
 
 -- name: GetPostsByCategory :many
-SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE category = ANY($1);
+SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE category = $1;
 
 -- name: GetPostById :one
 SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE id = $1;
