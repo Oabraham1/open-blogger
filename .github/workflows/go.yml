@@ -47,5 +47,8 @@ jobs:
     - name: Run migrations
       run: make migrateUp
 
+    - name: Create env file for CI test
+      run: make setup-server-test-env-for-ci
+
     - name: Test
       run: make test-server

@@ -25,6 +25,13 @@ start-server:
 test-server:
 	cd server && go test -v -cover ./...
 
+setup-server-test-env-for-ci:
+	touch .env
+	echo "DB_URL=$(DB_URL)" >> .env
+	echo "DB_DRIVER=postgres" >> .env
+	echo "ENVIRONMENT=development" >> .env
+	echo "HTTP_SERVER_ADDRESS=0.0.0.0:8080" >> .env
+
 format-go:
 	go fmt ./...
 

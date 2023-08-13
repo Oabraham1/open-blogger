@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// ExecTx executes a function within a database transaction
+/* ExecTx executes a function within a database transaction */
 func (store *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error {
 	tx, err := store.ConnectionPool.Begin(ctx)
 	if err != nil {
