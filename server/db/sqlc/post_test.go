@@ -23,7 +23,7 @@ func createDummyPost(t *testing.T, userId uuid.UUID, username string) CreateNewP
 
 func TestPostCRUDOperations(t *testing.T) {
 	userArg := createDummyUser("testUser123", "testUser@email.com")
-	user, err := testQueries.CreateNewUser(context.Background(), userArg)
+	user, err := testStore.CreateNewUser(context.Background(), userArg)
 	require.NoError(t, err)
 	arg := createDummyPost(t, user.ID, user.Username)
 	ctx := context.Background()
@@ -31,7 +31,7 @@ func TestPostCRUDOperations(t *testing.T) {
 	/*
 		Test Create Post
 	*/
-	post, err := testQueries.CreateNewPost(ctx, arg)
+	post, err := testStore.CreateNewPost(ctx, arg)
 	require.NoError(t, err)
 	require.NotEmpty(t, post)
 	require.Equal(t, arg.Title, post.Title)
@@ -44,7 +44,7 @@ func TestPostCRUDOperations(t *testing.T) {
 	/*
 		Test Get Post By ID
 	*/
-	getPost, err := testQueries.GetPostById(ctx, post.ID)
+	getPost, err := testStore.GetPostById(ctx, post.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, getPost)
 	require.Equal(t, post.ID, getPost.ID)
@@ -58,7 +58,7 @@ func TestPostCRUDOperations(t *testing.T) {
 	/*
 		Test Get Post By Category
 	*/
-	getPostsByCategory, err := testQueries.GetPostsByCategory(ctx, post.Category)
+	getPostsByCategory, err := testStore.GetPostsByCategory(ctx, post.Category)
 	require.NoError(t, err)
 	require.NotEmpty(t, getPostsByCategory)
 	require.Greater(t, len(getPostsByCategory), 0)
@@ -69,10 +69,10 @@ func TestPostCRUDOperations(t *testing.T) {
 	*/
 	for i := 0; i < 4; i++ {
 		arg := createDummyPost(t, user.ID, user.Username)
-		_, err := testQueries.CreateNewPost(ctx, arg)
+		_, err := testStore.CreateNewPost(ctx, arg)
 		require.NoError(t, err)
 	}
-	getAllPosts, err := testQueries.GetAllPosts(ctx)
+	getAllPosts, err := testStore.GetAllPosts(ctx)
 	require.NoError(t, err)
 	require.NotEmpty(t, getAllPosts)
 	require.Equal(t, len(getAllPosts), 5)
@@ -85,7 +85,7 @@ func TestPostCRUDOperations(t *testing.T) {
 		UserID: arg.UserID,
 		ID:     post.ID,
 	}
-	updatedPost, err := testQueries.UpdatePostBodyByPostIDAndUserID(ctx, updatePost)
+	updatedPost, err := testStore.UpdatePostBodyByPostIDAndUserID(ctx, updatePost)
 	require.NoError(t, err)
 	require.NotEmpty(t, updatedPost)
 	require.Equal(t, updatePost.Body, updatedPost.Body)
@@ -94,22 +94,22 @@ func TestPostCRUDOperations(t *testing.T) {
 	/*
 		Test Delete Post
 	*/
-	err = testQueries.DeletePostByID(ctx, post.ID)
+	err = testStore.DeletePostByID(ctx, post.ID)
 	require.NoError(t, err)
-	getPost, err = testQueries.GetPostById(ctx, post.ID)
+	getPost, err = testStore.GetPostById(ctx, post.ID)
 	require.Error(t, err)
 	require.Empty(t, getPost)
 
 	// Tear Down
 	// Delete all posts
-	posts, err := testQueries.GetAllPosts(ctx)
+	posts, err := testStore.GetAllPosts(ctx)
 	require.NoError(t, err)
 	require.NotEmpty(t, posts)
 	for _, post := range posts {
-		err = testQueries.DeletePostByID(ctx, post.ID)
+		err = testStore.DeletePostByID(ctx, post.ID)
 		require.NoError(t, err)
 	}
 	// Delete user
-	err = testQueries.DeleteUserByID(ctx, arg.UserID)
+	err = testStore.DeleteUserByID(ctx, arg.UserID)
 	require.NoError(t, err)
 }

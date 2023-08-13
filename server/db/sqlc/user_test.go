@@ -26,7 +26,7 @@ func TestUserCRUDOperations(t *testing.T) {
 	arg := createDummyUser("testUser", "testUser@email.com")
 
 	/* Test CreateNewUser */
-	user, err := testQueries.CreateNewUser(context.Background(), arg)
+	user, err := testStore.CreateNewUser(context.Background(), arg)
 	require.NoError(t, err)
 	require.NotEmpty(t, user)
 	require.Equal(t, arg.Username, user.Username)
@@ -36,7 +36,7 @@ func TestUserCRUDOperations(t *testing.T) {
 	require.Equal(t, arg.Interests, user.Interests)
 
 	/* Test GetUserByID */
-	getUser, err := testQueries.GetUserByID(context.Background(), user.ID)
+	getUser, err := testStore.GetUserByID(context.Background(), user.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, getUser)
 	require.Equal(t, arg.Username, getUser.Username)
@@ -46,7 +46,7 @@ func TestUserCRUDOperations(t *testing.T) {
 	require.Equal(t, arg.Interests, getUser.Interests)
 
 	/* Test GetUserByUsername */
-	getUserByUsername, err := testQueries.GetUserByUsername(context.Background(), user.Username)
+	getUserByUsername, err := testStore.GetUserByUsername(context.Background(), user.Username)
 	require.NoError(t, err)
 	require.NotEmpty(t, getUserByUsername)
 	require.Equal(t, arg.Username, getUserByUsername.Username)
@@ -59,12 +59,12 @@ func TestUserCRUDOperations(t *testing.T) {
 	require.Equal(t, getUser.Interests, getUserByUsername.Interests)
 
 	/* Test GetPostsByUserID */
-	posts, err := testQueries.GetPostsByUserID(context.Background(), user.ID)
+	posts, err := testStore.GetPostsByUserID(context.Background(), user.ID)
 	require.NoError(t, err)
 	require.Empty(t, posts)
 	// Create 4 posts
 	for i := 0; i < 4; i++ {
-		_, err := testQueries.CreateNewPost(context.Background(), CreateNewPostParams{
+		_, err := testStore.CreateNewPost(context.Background(), CreateNewPostParams{
 			UserID:       user.ID,
 			Username:     user.Username,
 			Status:       StatusPublished,
@@ -77,13 +77,13 @@ func TestUserCRUDOperations(t *testing.T) {
 		})
 		require.NoError(t, err)
 	}
-	posts, err = testQueries.GetPostsByUserID(context.Background(), user.ID)
+	posts, err = testStore.GetPostsByUserID(context.Background(), user.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, posts)
 	require.Equal(t, 4, len(posts))
 
 	/* Test GetPostsByUsername */
-	getPostsByUserName, err := testQueries.GetPostsByUserName(context.Background(), user.Username)
+	getPostsByUserName, err := testStore.GetPostsByUserName(context.Background(), user.Username)
 	require.NoError(t, err)
 	require.NotEmpty(t, getPostsByUserName)
 	require.Equal(t, 4, len(getPostsByUserName))
@@ -91,12 +91,12 @@ func TestUserCRUDOperations(t *testing.T) {
 
 	/* Test UpdateUserInterestsByID */
 	newInterests := []string{"newTestInterest1", "newTestInterest2"}
-	err = testQueries.UpdateUserInterestsByID(context.Background(), UpdateUserInterestsByIDParams{
+	err = testStore.UpdateUserInterestsByID(context.Background(), UpdateUserInterestsByIDParams{
 		ID:        user.ID,
 		Interests: newInterests,
 	})
 	require.NoError(t, err)
-	updatedUser, err := testQueries.GetUserByID(context.Background(), user.ID)
+	updatedUser, err := testStore.GetUserByID(context.Background(), user.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, updatedUser)
 	require.Equal(t, newInterests, updatedUser.Interests)
@@ -104,7 +104,7 @@ func TestUserCRUDOperations(t *testing.T) {
 
 	/* Test UpdatePostBodyByUserID */
 	newBody := "newTestContent"
-	updatedPost, err := testQueries.UpdatePostBodyByPostIDAndUserID(context.Background(), UpdatePostBodyByPostIDAndUserIDParams{
+	updatedPost, err := testStore.UpdatePostBodyByPostIDAndUserID(context.Background(), UpdatePostBodyByPostIDAndUserIDParams{
 		UserID: user.ID,
 		ID:     posts[0].ID,
 		Body:   newBody,
@@ -117,13 +117,13 @@ func TestUserCRUDOperations(t *testing.T) {
 	/* Teardown */
 	// Delete all posts
 	for _, post := range posts {
-		err = testQueries.DeletePostByID(context.Background(), post.ID)
+		err = testStore.DeletePostByID(context.Background(), post.ID)
 		require.NoError(t, err)
 	}
 	// Delete user
-	err = testQueries.DeleteUserByID(context.Background(), user.ID)
+	err = testStore.DeleteUserByID(context.Background(), user.ID)
 	require.NoError(t, err)
-	getUserDeleted, err := testQueries.GetUserByID(context.Background(), user.ID)
+	getUserDeleted, err := testStore.GetUserByID(context.Background(), user.ID)
 	require.Error(t, err)
 	require.Empty(t, getUserDeleted)
 }

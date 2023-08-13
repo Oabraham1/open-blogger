@@ -11,10 +11,10 @@ dropdb:
 	docker exec -it openBloggerPostgres dropdb openBloggerDB
 
 migrateUp:
-	cd server && migrate -path ./internal/db/migration -database "$(DB_URL)" -verbose up
+	cd server && migrate -path ./db/migration -database "$(DB_URL)" -verbose up
 
 migrateDown:
-	cd server && migrate -path ./internal/db/migration -database "$(DB_URL)" -verbose down
+	cd server && migrate -path ./db/migration -database "$(DB_URL)" -verbose down
 
 sqlc-gen:
 	cd server && sqlc generate

@@ -1,5 +1,5 @@
 -- name: CreateNewPost :one
-INSERT INTO posts (title, body, user_id, username, status, category, created_at, published_at, last_modified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, title, body, username, status, category, created_at, published_at, last_modified;
+INSERT INTO posts (title, body, user_id, username, status, category, created_at, published_at, last_modified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
 
 -- name: GetPostsByCategory :many
 SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE category = $1;
@@ -14,7 +14,7 @@ SELECT id, title, username, body, status, category, created_at, published_at, la
 SELECT id, body, username, created_at FROM comments WHERE post_id = $1;
 
 -- name: CreateNewComment :one
-INSERT INTO comments (user_id, username, post_id, body, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, body, username, created_at;
+INSERT INTO comments (user_id, username, post_id, body, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING *;
 
 -- name: DeletePostByID :exec
 DELETE FROM posts WHERE id = $1;

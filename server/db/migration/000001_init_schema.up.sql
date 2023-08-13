@@ -11,7 +11,7 @@ CREATE TABLE "users" (
   "first_name" varchar NOT NULL,
   "last_name" varchar NOT NULL,
   "interests" varchar[] NOT NULL,
-  "created_at" timestamp NOT NULL
+  "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE TABLE "posts" (
@@ -22,9 +22,9 @@ CREATE TABLE "posts" (
   "username" varchar NOT NULL,
   "status" status NOT NULL,
   "category" varchar NOT NULL,
-  "created_at" timestamp NOT NULL,
-  "published_at" timestamp NOT NULL,
-  "last_modified" timestamp NOT NULL
+  "created_at" timestamptz NOT NULL DEFAULT (now()),
+  "published_at" timestamptz NOT NULL,
+  "last_modified" timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE TABLE "comments" (
@@ -33,7 +33,7 @@ CREATE TABLE "comments" (
   "username" varchar NOT NULL,
   "post_id" integer NOT NULL,
   "body" text NOT NULL,
-  "created_at" timestamp NOT NULL
+  "created_at" timestamptz NOT NULL
 );
 
 COMMENT ON COLUMN "posts"."body" IS 'Content of the blog post';
