@@ -234,3 +234,37 @@ func (q *Queries) GetPostsByCategory(ctx context.Context, category string) ([]Po
 	}
 	return items, nil
 }
+
+const updatePostStatus = `-- name: UpdatePostStatus :one
+UPDATE posts SET status = $1, published_at = $2 WHERE id = $3 AND user_id = $4 RETURNING id, title, body, user_id, username, status, category, created_at, published_at, last_modified
+`
+
+type UpdatePostStatusParams struct {
+	Status      Status    `json:"status"`
+	PublishedAt time.Time `json:"published_at"`
+	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) UpdatePostStatus(ctx context.Context, arg UpdatePostStatusParams) (Post, error) {
+	row := q.db.QueryRow(ctx, updatePostStatus,
+		arg.Status,
+		arg.PublishedAt,
+		arg.ID,
+		arg.UserID,
+	)
+	var i Post
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Body,
+		&i.UserID,
+		&i.Username,
+		&i.Status,
+		&i.Category,
+		&i.CreatedAt,
+		&i.PublishedAt,
+		&i.LastModified,
+	)
+	return i, err
+}

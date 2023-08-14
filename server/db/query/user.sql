@@ -17,7 +17,7 @@ SELECT * FROM posts WHERE username = $1;
 UPDATE users SET interests = $1 WHERE id = $2;
 
 -- name: UpdatePostBodyByPostIDAndUserID :one
-UPDATE posts SET body = $1 WHERE id = $2 AND user_id = $3 RETURNING *;
+UPDATE posts SET body = $1, last_modified = $2 WHERE id = $3 AND user_id = $4 RETURNING *;
 
 -- name: DeleteUserByID :exec
 DELETE FROM users WHERE id = $1;

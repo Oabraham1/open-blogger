@@ -37,9 +37,14 @@ type GetPostsByUsernameRequest struct {
 	Username string `uri:"username" binding:"required"`
 }
 
-type UpdatePostRequest struct {
+type UpdatePostBodyRequest struct {
 	ID     string `json:"id" binding:"required"`
 	Body   string `json:"body" binding:"required"`
+	UserID string `json:"user_id" binding:"required"`
+}
+
+type UpdatePostStatusRequest struct {
+	ID     string `json:"id" binding:"required"`
 	UserID string `json:"user_id" binding:"required"`
 }
 
@@ -283,7 +288,7 @@ func (server *Server) GetPostsByUserID(ctx *gin.Context) {
 }
 
 func (server *Server) UpdatePostBody(ctx *gin.Context) {
-	var req UpdatePostRequest
+	var req UpdatePostBodyRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
@@ -304,12 +309,50 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 	}
 
 	arg := db.UpdatePostBodyByPostIDAndUserIDParams{
-		ID:     postId,
-		Body:   req.Body,
-		UserID: userId,
+		ID:           postId,
+		Body:         req.Body,
+		UserID:       userId,
+		LastModified: time.Now(),
 	}
 
 	post, err := server.DataStore.UpdatePostBodyByPostIDAndUserID(ctx, arg)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, GetPostResponse(post))
+}
+
+func (server *Server) UpdatePostStatus(ctx *gin.Context) {
+	var req UpdatePostStatusRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	// convert userId string to uuid
+	userId, err := uuid.Parse(req.UserID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	// convert postId string to uuid
+	postId, err := uuid.Parse(req.ID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	arg := db.UpdatePostStatusParams{
+		ID:          postId,
+		Status:      db.StatusPublished,
+		UserID:      userId,
+		PublishedAt: time.Now(),
+	}
+
+	post, err := server.DataStore.UpdatePostStatus(ctx, arg)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return

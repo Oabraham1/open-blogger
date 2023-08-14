@@ -172,17 +172,23 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 }
 
 const updatePostBodyByPostIDAndUserID = `-- name: UpdatePostBodyByPostIDAndUserID :one
-UPDATE posts SET body = $1 WHERE id = $2 AND user_id = $3 RETURNING id, title, body, user_id, username, status, category, created_at, published_at, last_modified
+UPDATE posts SET body = $1, last_modified = $2 WHERE id = $3 AND user_id = $4 RETURNING id, title, body, user_id, username, status, category, created_at, published_at, last_modified
 `
 
 type UpdatePostBodyByPostIDAndUserIDParams struct {
-	Body   string    `json:"body"`
-	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
+	Body         string    `json:"body"`
+	LastModified time.Time `json:"last_modified"`
+	ID           uuid.UUID `json:"id"`
+	UserID       uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) UpdatePostBodyByPostIDAndUserID(ctx context.Context, arg UpdatePostBodyByPostIDAndUserIDParams) (Post, error) {
-	row := q.db.QueryRow(ctx, updatePostBodyByPostIDAndUserID, arg.Body, arg.ID, arg.UserID)
+	row := q.db.QueryRow(ctx, updatePostBodyByPostIDAndUserID,
+		arg.Body,
+		arg.LastModified,
+		arg.ID,
+		arg.UserID,
+	)
 	var i Post
 	err := row.Scan(
 		&i.ID,

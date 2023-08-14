@@ -25,6 +25,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	UpdatePostBodyByPostIDAndUserID(ctx context.Context, arg UpdatePostBodyByPostIDAndUserIDParams) (Post, error)
+	UpdatePostStatus(ctx context.Context, arg UpdatePostStatusParams) (Post, error)
 	UpdateUserInterestsByID(ctx context.Context, arg UpdateUserInterestsByIDParams) error
 }
 

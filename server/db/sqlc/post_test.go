@@ -79,7 +79,7 @@ func TestPostCRUDOperations(t *testing.T) {
 	require.Equal(t, len(getAllPosts), 5)
 
 	/*
-		Test Update Post
+		Test Update Post Body
 	*/
 	updatePost := UpdatePostBodyByPostIDAndUserIDParams{
 		Body:   "This is an updated post",
@@ -91,6 +91,20 @@ func TestPostCRUDOperations(t *testing.T) {
 	require.NotEmpty(t, updatedPost)
 	require.Equal(t, updatePost.Body, updatedPost.Body)
 	require.NotEqual(t, post.Body, updatedPost.Body)
+
+	/*
+		Test Update Post Status
+	*/
+	updatePostStatus := UpdatePostStatusParams{
+		Status: StatusPublished,
+		UserID: arg.UserID,
+		ID:     post.ID,
+	}
+	updatedPost, err = testStore.UpdatePostStatus(ctx, updatePostStatus)
+	require.NoError(t, err)
+	require.NotEmpty(t, updatedPost)
+	require.Equal(t, updatePostStatus.Status, updatedPost.Status)
+	require.NotEqual(t, post.Status, updatedPost.Status)
 
 	/*
 		Test Delete Post

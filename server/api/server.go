@@ -38,7 +38,8 @@ func (server *Server) setupRouter() {
 	router.GET("/api/post/getByID/:id", server.GetPostById)
 	router.GET("/api/post/getByCategory", server.GetPostsByCategory)
 	router.GET("/api/post/getByUsername/:username", server.GetPostsByUsername)
-	router.POST("/api/post/update", server.UpdatePostBody)
+	router.POST("/api/post/updateBody", server.UpdatePostBody)
+	router.POST("/api/post/publish", server.UpdatePostStatus)
 	router.DELETE("/api/post/delete/:id", server.DeletePost)
 
 	router.POST("/api/comment/create", server.CreateNewComment)

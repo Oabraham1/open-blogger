@@ -10,6 +10,9 @@ SELECT * FROM posts WHERE id = $1;
 -- name: GetAllPosts :many
 SELECT id, title, username, body, status, category, created_at, published_at, last_modified FROM posts;
 
+-- name: UpdatePostStatus :one
+UPDATE posts SET status = $1, published_at = $2 WHERE id = $3 AND user_id = $4 RETURNING *;
+
 -- name: GetCommentsByPostID :many
 SELECT * FROM comments WHERE post_id = $1;
 
