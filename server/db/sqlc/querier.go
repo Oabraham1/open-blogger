@@ -14,16 +14,16 @@ type Querier interface {
 	CreateNewComment(ctx context.Context, arg CreateNewCommentParams) (Comment, error)
 	CreateNewPost(ctx context.Context, arg CreateNewPostParams) (Post, error)
 	CreateNewUser(ctx context.Context, arg CreateNewUserParams) (User, error)
-	DeletePostByID(ctx context.Context, id int32) error
+	DeletePostByID(ctx context.Context, id uuid.UUID) error
 	DeleteUserByID(ctx context.Context, id uuid.UUID) error
 	GetAllPosts(ctx context.Context) ([]GetAllPostsRow, error)
-	GetCommentsByPostID(ctx context.Context, postID int32) ([]GetCommentsByPostIDRow, error)
-	GetPostById(ctx context.Context, id int32) (GetPostByIdRow, error)
-	GetPostsByCategory(ctx context.Context, category string) ([]GetPostsByCategoryRow, error)
-	GetPostsByUserID(ctx context.Context, userID uuid.UUID) ([]GetPostsByUserIDRow, error)
-	GetPostsByUserName(ctx context.Context, username string) ([]GetPostsByUserNameRow, error)
-	GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error)
-	GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error)
+	GetCommentsByPostID(ctx context.Context, postID uuid.UUID) ([]Comment, error)
+	GetPostById(ctx context.Context, id uuid.UUID) (Post, error)
+	GetPostsByCategory(ctx context.Context, category string) ([]Post, error)
+	GetPostsByUserID(ctx context.Context, userID uuid.UUID) ([]Post, error)
+	GetPostsByUserName(ctx context.Context, username string) ([]Post, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	GetUserByUsername(ctx context.Context, username string) (User, error)
 	UpdatePostBodyByPostIDAndUserID(ctx context.Context, arg UpdatePostBodyByPostIDAndUserIDParams) (Post, error)
 	UpdateUserInterestsByID(ctx context.Context, arg UpdateUserInterestsByIDParams) error
 }

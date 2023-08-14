@@ -55,18 +55,18 @@ func (ns NullStatus) Value() (driver.Value, error) {
 }
 
 type Comment struct {
-	ID       int32     `json:"id"`
+	ID       uuid.UUID `json:"id"`
 	UserID   uuid.UUID `json:"user_id"`
 	Username string    `json:"username"`
-	PostID   int32     `json:"post_id"`
+	PostID   uuid.UUID `json:"post_id"`
 	// Content of the comment
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 type Post struct {
-	ID    int32  `json:"id"`
-	Title string `json:"title"`
+	ID    uuid.UUID `json:"id"`
+	Title string    `json:"title"`
 	// Content of the blog post
 	Body         string    `json:"body"`
 	UserID       uuid.UUID `json:"user_id"`

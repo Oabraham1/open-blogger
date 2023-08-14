@@ -11,6 +11,7 @@ import (
 
 func createDummyPost(t *testing.T, userId uuid.UUID, username string) CreateNewPostParams {
 	return CreateNewPostParams{
+		ID:        uuid.New(),
 		Title:     "Test Post",
 		Body:      "This is a test post",
 		UserID:    userId,

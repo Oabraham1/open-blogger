@@ -62,33 +62,24 @@ func (q *Queries) DeleteUserByID(ctx context.Context, id uuid.UUID) error {
 }
 
 const getPostsByUserID = `-- name: GetPostsByUserID :many
-SELECT id, title, body, status, category, created_at, published_at, last_modified FROM posts WHERE user_id = $1
+SELECT id, title, body, user_id, username, status, category, created_at, published_at, last_modified FROM posts WHERE user_id = $1
 `
 
-type GetPostsByUserIDRow struct {
-	ID           int32     `json:"id"`
-	Title        string    `json:"title"`
-	Body         string    `json:"body"`
-	Status       Status    `json:"status"`
-	Category     string    `json:"category"`
-	CreatedAt    time.Time `json:"created_at"`
-	PublishedAt  time.Time `json:"published_at"`
-	LastModified time.Time `json:"last_modified"`
-}
-
-func (q *Queries) GetPostsByUserID(ctx context.Context, userID uuid.UUID) ([]GetPostsByUserIDRow, error) {
+func (q *Queries) GetPostsByUserID(ctx context.Context, userID uuid.UUID) ([]Post, error) {
 	rows, err := q.db.Query(ctx, getPostsByUserID, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetPostsByUserIDRow{}
+	items := []Post{}
 	for rows.Next() {
-		var i GetPostsByUserIDRow
+		var i Post
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
 			&i.Body,
+			&i.UserID,
+			&i.Username,
 			&i.Status,
 			&i.Category,
 			&i.CreatedAt,
@@ -106,33 +97,24 @@ func (q *Queries) GetPostsByUserID(ctx context.Context, userID uuid.UUID) ([]Get
 }
 
 const getPostsByUserName = `-- name: GetPostsByUserName :many
-SELECT id, title, body, status, category, created_at, published_at, last_modified FROM posts WHERE username = $1
+SELECT id, title, body, user_id, username, status, category, created_at, published_at, last_modified FROM posts WHERE username = $1
 `
 
-type GetPostsByUserNameRow struct {
-	ID           int32     `json:"id"`
-	Title        string    `json:"title"`
-	Body         string    `json:"body"`
-	Status       Status    `json:"status"`
-	Category     string    `json:"category"`
-	CreatedAt    time.Time `json:"created_at"`
-	PublishedAt  time.Time `json:"published_at"`
-	LastModified time.Time `json:"last_modified"`
-}
-
-func (q *Queries) GetPostsByUserName(ctx context.Context, username string) ([]GetPostsByUserNameRow, error) {
+func (q *Queries) GetPostsByUserName(ctx context.Context, username string) ([]Post, error) {
 	rows, err := q.db.Query(ctx, getPostsByUserName, username)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetPostsByUserNameRow{}
+	items := []Post{}
 	for rows.Next() {
-		var i GetPostsByUserNameRow
+		var i Post
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
 			&i.Body,
+			&i.UserID,
+			&i.Username,
 			&i.Status,
 			&i.Category,
 			&i.CreatedAt,
@@ -150,51 +132,41 @@ func (q *Queries) GetPostsByUserName(ctx context.Context, username string) ([]Ge
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, email, first_name, last_name, interests FROM users WHERE id = $1
+SELECT id, username, password, email, first_name, last_name, interests, created_at FROM users WHERE id = $1
 `
 
-type GetUserByIDRow struct {
-	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	FirstName string    `json:"first_name"`
-	LastName  string    `json:"last_name"`
-	Interests []string  `json:"interests"`
-}
-
-func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
-	var i GetUserByIDRow
+	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
+		&i.Password,
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
 		&i.Interests,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT username, first_name, last_name, interests FROM users WHERE username = $1
+SELECT id, username, password, email, first_name, last_name, interests, created_at FROM users WHERE username = $1
 `
 
-type GetUserByUsernameRow struct {
-	Username  string   `json:"username"`
-	FirstName string   `json:"first_name"`
-	LastName  string   `json:"last_name"`
-	Interests []string `json:"interests"`
-}
-
-func (q *Queries) GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error) {
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByUsername, username)
-	var i GetUserByUsernameRow
+	var i User
 	err := row.Scan(
+		&i.ID,
 		&i.Username,
+		&i.Password,
+		&i.Email,
 		&i.FirstName,
 		&i.LastName,
 		&i.Interests,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -205,7 +177,7 @@ UPDATE posts SET body = $1 WHERE id = $2 AND user_id = $3 RETURNING id, title, b
 
 type UpdatePostBodyByPostIDAndUserIDParams struct {
 	Body   string    `json:"body"`
-	ID     int32     `json:"id"`
+	ID     uuid.UUID `json:"id"`
 	UserID uuid.UUID `json:"user_id"`
 }
 

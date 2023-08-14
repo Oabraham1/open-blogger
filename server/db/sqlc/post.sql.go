@@ -13,19 +13,21 @@ import (
 )
 
 const createNewComment = `-- name: CreateNewComment :one
-INSERT INTO comments (user_id, username, post_id, body, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, user_id, username, post_id, body, created_at
+INSERT INTO comments (id, user_id, username, post_id, body, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, user_id, username, post_id, body, created_at
 `
 
 type CreateNewCommentParams struct {
+	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
 	Username  string    `json:"username"`
-	PostID    int32     `json:"post_id"`
+	PostID    uuid.UUID `json:"post_id"`
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 func (q *Queries) CreateNewComment(ctx context.Context, arg CreateNewCommentParams) (Comment, error) {
 	row := q.db.QueryRow(ctx, createNewComment,
+		arg.ID,
 		arg.UserID,
 		arg.Username,
 		arg.PostID,
@@ -45,10 +47,11 @@ func (q *Queries) CreateNewComment(ctx context.Context, arg CreateNewCommentPara
 }
 
 const createNewPost = `-- name: CreateNewPost :one
-INSERT INTO posts (title, body, user_id, username, status, category, created_at, published_at, last_modified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, title, body, user_id, username, status, category, created_at, published_at, last_modified
+INSERT INTO posts (id, title, body, user_id, username, status, category, created_at, published_at, last_modified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, title, body, user_id, username, status, category, created_at, published_at, last_modified
 `
 
 type CreateNewPostParams struct {
+	ID           uuid.UUID `json:"id"`
 	Title        string    `json:"title"`
 	Body         string    `json:"body"`
 	UserID       uuid.UUID `json:"user_id"`
@@ -62,6 +65,7 @@ type CreateNewPostParams struct {
 
 func (q *Queries) CreateNewPost(ctx context.Context, arg CreateNewPostParams) (Post, error) {
 	row := q.db.QueryRow(ctx, createNewPost,
+		arg.ID,
 		arg.Title,
 		arg.Body,
 		arg.UserID,
@@ -92,7 +96,7 @@ const deletePostByID = `-- name: DeletePostByID :exec
 DELETE FROM posts WHERE id = $1
 `
 
-func (q *Queries) DeletePostByID(ctx context.Context, id int32) error {
+func (q *Queries) DeletePostByID(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deletePostByID, id)
 	return err
 }
@@ -102,7 +106,7 @@ SELECT id, title, username, body, status, category, created_at, published_at, la
 `
 
 type GetAllPostsRow struct {
-	ID           int32     `json:"id"`
+	ID           uuid.UUID `json:"id"`
 	Title        string    `json:"title"`
 	Username     string    `json:"username"`
 	Body         string    `json:"body"`
@@ -144,29 +148,24 @@ func (q *Queries) GetAllPosts(ctx context.Context) ([]GetAllPostsRow, error) {
 }
 
 const getCommentsByPostID = `-- name: GetCommentsByPostID :many
-SELECT id, body, username, created_at FROM comments WHERE post_id = $1
+SELECT id, user_id, username, post_id, body, created_at FROM comments WHERE post_id = $1
 `
 
-type GetCommentsByPostIDRow struct {
-	ID        int32     `json:"id"`
-	Body      string    `json:"body"`
-	Username  string    `json:"username"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-func (q *Queries) GetCommentsByPostID(ctx context.Context, postID int32) ([]GetCommentsByPostIDRow, error) {
+func (q *Queries) GetCommentsByPostID(ctx context.Context, postID uuid.UUID) ([]Comment, error) {
 	rows, err := q.db.Query(ctx, getCommentsByPostID, postID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetCommentsByPostIDRow{}
+	items := []Comment{}
 	for rows.Next() {
-		var i GetCommentsByPostIDRow
+		var i Comment
 		if err := rows.Scan(
 			&i.ID,
-			&i.Body,
+			&i.UserID,
 			&i.Username,
+			&i.PostID,
+			&i.Body,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -180,28 +179,17 @@ func (q *Queries) GetCommentsByPostID(ctx context.Context, postID int32) ([]GetC
 }
 
 const getPostById = `-- name: GetPostById :one
-SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE id = $1
+SELECT id, title, body, user_id, username, status, category, created_at, published_at, last_modified FROM posts WHERE id = $1
 `
 
-type GetPostByIdRow struct {
-	ID           int32     `json:"id"`
-	Title        string    `json:"title"`
-	Body         string    `json:"body"`
-	Username     string    `json:"username"`
-	Status       Status    `json:"status"`
-	Category     string    `json:"category"`
-	CreatedAt    time.Time `json:"created_at"`
-	PublishedAt  time.Time `json:"published_at"`
-	LastModified time.Time `json:"last_modified"`
-}
-
-func (q *Queries) GetPostById(ctx context.Context, id int32) (GetPostByIdRow, error) {
+func (q *Queries) GetPostById(ctx context.Context, id uuid.UUID) (Post, error) {
 	row := q.db.QueryRow(ctx, getPostById, id)
-	var i GetPostByIdRow
+	var i Post
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.Body,
+		&i.UserID,
 		&i.Username,
 		&i.Status,
 		&i.Category,
@@ -213,34 +201,23 @@ func (q *Queries) GetPostById(ctx context.Context, id int32) (GetPostByIdRow, er
 }
 
 const getPostsByCategory = `-- name: GetPostsByCategory :many
-SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE category = $1
+SELECT id, title, body, user_id, username, status, category, created_at, published_at, last_modified FROM posts WHERE category = $1
 `
 
-type GetPostsByCategoryRow struct {
-	ID           int32     `json:"id"`
-	Title        string    `json:"title"`
-	Body         string    `json:"body"`
-	Username     string    `json:"username"`
-	Status       Status    `json:"status"`
-	Category     string    `json:"category"`
-	CreatedAt    time.Time `json:"created_at"`
-	PublishedAt  time.Time `json:"published_at"`
-	LastModified time.Time `json:"last_modified"`
-}
-
-func (q *Queries) GetPostsByCategory(ctx context.Context, category string) ([]GetPostsByCategoryRow, error) {
+func (q *Queries) GetPostsByCategory(ctx context.Context, category string) ([]Post, error) {
 	rows, err := q.db.Query(ctx, getPostsByCategory, category)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetPostsByCategoryRow{}
+	items := []Post{}
 	for rows.Next() {
-		var i GetPostsByCategoryRow
+		var i Post
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
 			&i.Body,
+			&i.UserID,
 			&i.Username,
 			&i.Status,
 			&i.Category,

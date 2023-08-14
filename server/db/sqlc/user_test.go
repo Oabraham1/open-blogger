@@ -65,15 +65,13 @@ func TestUserCRUDOperations(t *testing.T) {
 	// Create 4 posts
 	for i := 0; i < 4; i++ {
 		_, err := testStore.CreateNewPost(context.Background(), CreateNewPostParams{
-			UserID:       user.ID,
-			Username:     user.Username,
-			Status:       StatusPublished,
-			Category:     "News",
-			Title:        "testTitle",
-			Body:         "testContent",
-			CreatedAt:    time.Now(),
-			PublishedAt:  time.Now(),
-			LastModified: time.Now(),
+			ID:       uuid.New(),
+			UserID:   user.ID,
+			Username: user.Username,
+			Status:   StatusPublished,
+			Category: "News",
+			Title:    "testTitle",
+			Body:     "testContent",
 		})
 		require.NoError(t, err)
 	}
