@@ -15,7 +15,7 @@ CREATE TABLE "users" (
 );
 
 CREATE TABLE "posts" (
-  "id" uuid PRIMARY KEY,
+  "id" uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   "title" varchar NOT NULL,
   "body" text NOT NULL,
   "user_id" uuid NOT NULL,
@@ -28,12 +28,12 @@ CREATE TABLE "posts" (
 );
 
 CREATE TABLE "comments" (
-  "id" uuid PRIMARY KEY,
+  "id" uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   "user_id" uuid NOT NULL,
   "username" varchar NOT NULL,
   "post_id" uuid NOT NULL,
   "body" text NOT NULL,
-  "created_at" timestamptz NOT NULL
+  "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
 COMMENT ON COLUMN "posts"."body" IS 'Content of the blog post';

@@ -212,6 +212,34 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 		return
 	}
 
+	// Get all Comments by User ID
+	comments, err := server.DataStore.GetCommentsByUserID(ctx, userId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+	for _, comment := range comments {
+		err = server.DataStore.DeleteCommentByID(ctx, comment.ID)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+			return
+		}
+	}
+
+	// Get all Posts by User ID
+	posts, err := server.DataStore.GetPostsByUserID(ctx, userId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+	for _, post := range posts {
+		err = server.DataStore.DeletePostByID(ctx, post.ID)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+			return
+		}
+	}
+
 	err = server.DataStore.DeleteUserByID(ctx, userId)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))

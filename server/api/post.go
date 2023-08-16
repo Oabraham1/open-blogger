@@ -52,6 +52,10 @@ type GetCommentsByPostIDRequest struct {
 	PostID string `json:"post_id" binding:"required"`
 }
 
+type DeleteCommentByIDRequest struct {
+	ID string `uri:"id" binding:"required"`
+}
+
 type DeletePostRequest struct {
 	ID string `json:"id" binding:"required"`
 }
@@ -83,8 +87,8 @@ func GetPostResponse(post db.Post) PostResponse {
 		UserName:     post.Username,
 		Status:       string(post.Status),
 		Category:     post.Category,
-		LastModified: post.LastModified.Local().String(),
-		PublishedAt:  post.PublishedAt.UTC().String(),
+		LastModified: post.LastModified.UTC().Format("2006/01/02 15:04:05"),
+		PublishedAt:  post.PublishedAt.UTC().Format("2006/01/02 15:04:05"),
 	}
 }
 
@@ -94,7 +98,7 @@ func GetCommentResponse(comment db.Comment) CommentResponse {
 		PostID:    comment.PostID.String(),
 		Body:      comment.Body,
 		UserName:  comment.Username,
-		CreatedAt: comment.CreatedAt.Local().String(),
+		CreatedAt: comment.CreatedAt.UTC().Format("2006/01/02 15:04:05"),
 	}
 }
 
@@ -119,15 +123,12 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 	dbStatus := db.Status(status)
 
 	arg := db.CreateNewPostParams{
-		ID:           uuid.New(),
-		Title:        req.Title,
-		Body:         req.Body,
-		Username:     req.UserName,
-		UserID:       userId,
-		Status:       dbStatus,
-		Category:     req.Category,
-		CreatedAt:    time.Now(),
-		LastModified: time.Now(),
+		Title:    req.Title,
+		Body:     req.Body,
+		Username: req.UserName,
+		UserID:   userId,
+		Status:   dbStatus,
+		Category: req.Category,
 	}
 
 	if dbStatus == db.StatusPublished {
@@ -165,7 +166,6 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 	}
 
 	arg := db.CreateNewCommentParams{
-		ID:       uuid.New(),
 		PostID:   postId,
 		Body:     req.Body,
 		Username: req.UserName,
@@ -389,6 +389,29 @@ func (server *Server) GetCommentsByPostID(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rsp)
 }
 
+func (server *Server) DeleteComment(ctx *gin.Context) {
+	var req DeleteCommentByIDRequest
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	// convert commentId string to uuid
+	commentId, err := uuid.Parse(req.ID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	err = server.DataStore.DeleteCommentByID(ctx, commentId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Comment deleted successfully"})
+}
+
 func (server *Server) DeletePost(ctx *gin.Context) {
 	var req DeletePostRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
@@ -401,6 +424,20 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
+	}
+
+	// Delete all comments by postID
+	comments, err := server.DataStore.GetCommentsByPostID(ctx, postId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+	for _, comment := range comments {
+		err = server.DataStore.DeleteCommentByID(ctx, comment.ID)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+			return
+		}
 	}
 
 	err = server.DataStore.DeletePostByID(ctx, postId)

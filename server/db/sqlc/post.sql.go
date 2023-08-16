@@ -13,26 +13,22 @@ import (
 )
 
 const createNewComment = `-- name: CreateNewComment :one
-INSERT INTO comments (id, user_id, username, post_id, body, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, user_id, username, post_id, body, created_at
+INSERT INTO comments (user_id, username, post_id, body) VALUES ($1, $2, $3, $4) RETURNING id, user_id, username, post_id, body, created_at
 `
 
 type CreateNewCommentParams struct {
-	ID        uuid.UUID `json:"id"`
-	UserID    uuid.UUID `json:"user_id"`
-	Username  string    `json:"username"`
-	PostID    uuid.UUID `json:"post_id"`
-	Body      string    `json:"body"`
-	CreatedAt time.Time `json:"created_at"`
+	UserID   uuid.UUID `json:"user_id"`
+	Username string    `json:"username"`
+	PostID   uuid.UUID `json:"post_id"`
+	Body     string    `json:"body"`
 }
 
 func (q *Queries) CreateNewComment(ctx context.Context, arg CreateNewCommentParams) (Comment, error) {
 	row := q.db.QueryRow(ctx, createNewComment,
-		arg.ID,
 		arg.UserID,
 		arg.Username,
 		arg.PostID,
 		arg.Body,
-		arg.CreatedAt,
 	)
 	var i Comment
 	err := row.Scan(
@@ -47,34 +43,28 @@ func (q *Queries) CreateNewComment(ctx context.Context, arg CreateNewCommentPara
 }
 
 const createNewPost = `-- name: CreateNewPost :one
-INSERT INTO posts (id, title, body, user_id, username, status, category, created_at, published_at, last_modified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, title, body, user_id, username, status, category, created_at, published_at, last_modified
+INSERT INTO posts (title, body, user_id, username, status, category, published_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, title, body, user_id, username, status, category, created_at, published_at, last_modified
 `
 
 type CreateNewPostParams struct {
-	ID           uuid.UUID `json:"id"`
-	Title        string    `json:"title"`
-	Body         string    `json:"body"`
-	UserID       uuid.UUID `json:"user_id"`
-	Username     string    `json:"username"`
-	Status       Status    `json:"status"`
-	Category     string    `json:"category"`
-	CreatedAt    time.Time `json:"created_at"`
-	PublishedAt  time.Time `json:"published_at"`
-	LastModified time.Time `json:"last_modified"`
+	Title       string    `json:"title"`
+	Body        string    `json:"body"`
+	UserID      uuid.UUID `json:"user_id"`
+	Username    string    `json:"username"`
+	Status      Status    `json:"status"`
+	Category    string    `json:"category"`
+	PublishedAt time.Time `json:"published_at"`
 }
 
 func (q *Queries) CreateNewPost(ctx context.Context, arg CreateNewPostParams) (Post, error) {
 	row := q.db.QueryRow(ctx, createNewPost,
-		arg.ID,
 		arg.Title,
 		arg.Body,
 		arg.UserID,
 		arg.Username,
 		arg.Status,
 		arg.Category,
-		arg.CreatedAt,
 		arg.PublishedAt,
-		arg.LastModified,
 	)
 	var i Post
 	err := row.Scan(
@@ -90,6 +80,15 @@ func (q *Queries) CreateNewPost(ctx context.Context, arg CreateNewPostParams) (P
 		&i.LastModified,
 	)
 	return i, err
+}
+
+const deleteCommentByID = `-- name: DeleteCommentByID :exec
+DELETE FROM comments WHERE id = $1
+`
+
+func (q *Queries) DeleteCommentByID(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteCommentByID, id)
+	return err
 }
 
 const deletePostByID = `-- name: DeletePostByID :exec
@@ -153,6 +152,37 @@ SELECT id, user_id, username, post_id, body, created_at FROM comments WHERE post
 
 func (q *Queries) GetCommentsByPostID(ctx context.Context, postID uuid.UUID) ([]Comment, error) {
 	rows, err := q.db.Query(ctx, getCommentsByPostID, postID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Comment{}
+	for rows.Next() {
+		var i Comment
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Username,
+			&i.PostID,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getCommentsByUserID = `-- name: GetCommentsByUserID :many
+SELECT id, user_id, username, post_id, body, created_at FROM comments WHERE user_id = $1
+`
+
+func (q *Queries) GetCommentsByUserID(ctx context.Context, userID uuid.UUID) ([]Comment, error) {
+	rows, err := q.db.Query(ctx, getCommentsByUserID, userID)
 	if err != nil {
 		return nil, err
 	}

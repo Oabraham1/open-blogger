@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,7 +57,6 @@ func TestUserCRUDOperations(t *testing.T) {
 	// Create 4 posts
 	for i := 0; i < 4; i++ {
 		_, err := testStore.CreateNewPost(context.Background(), CreateNewPostParams{
-			ID:       uuid.New(),
 			UserID:   user.ID,
 			Username: user.Username,
 			Status:   StatusPublished,

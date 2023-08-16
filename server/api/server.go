@@ -44,6 +44,7 @@ func (server *Server) setupRouter() {
 
 	router.POST("/api/comment/create", server.CreateNewComment)
 	router.GET("/api/comment/getByPostID/:id", server.GetCommentsByPostID)
+	router.DELETE("/api/comment/delete/:id", server.DeleteComment)
 
 	server.Router = router
 }

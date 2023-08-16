@@ -111,6 +111,20 @@ func (mr *MockStoreMockRecorder) CreateUserTx(ctx, arg interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUserTx", reflect.TypeOf((*MockStore)(nil).CreateUserTx), ctx, arg)
 }
 
+// DeleteCommentByID mocks base method.
+func (m *MockStore) DeleteCommentByID(ctx context.Context, id uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteCommentByID", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteCommentByID indicates an expected call of DeleteCommentByID.
+func (mr *MockStoreMockRecorder) DeleteCommentByID(ctx, id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCommentByID", reflect.TypeOf((*MockStore)(nil).DeleteCommentByID), ctx, id)
+}
+
 // DeletePostByID mocks base method.
 func (m *MockStore) DeletePostByID(ctx context.Context, id uuid.UUID) error {
 	m.ctrl.T.Helper()
@@ -167,6 +181,21 @@ func (m *MockStore) GetCommentsByPostID(ctx context.Context, postID uuid.UUID) (
 func (mr *MockStoreMockRecorder) GetCommentsByPostID(ctx, postID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCommentsByPostID", reflect.TypeOf((*MockStore)(nil).GetCommentsByPostID), ctx, postID)
+}
+
+// GetCommentsByUserID mocks base method.
+func (m *MockStore) GetCommentsByUserID(ctx context.Context, userID uuid.UUID) ([]db.Comment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCommentsByUserID", ctx, userID)
+	ret0, _ := ret[0].([]db.Comment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCommentsByUserID indicates an expected call of GetCommentsByUserID.
+func (mr *MockStoreMockRecorder) GetCommentsByUserID(ctx, userID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCommentsByUserID", reflect.TypeOf((*MockStore)(nil).GetCommentsByUserID), ctx, userID)
 }
 
 // GetPostById mocks base method.

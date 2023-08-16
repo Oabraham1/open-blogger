@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -11,14 +10,12 @@ import (
 
 func createDummyPost(t *testing.T, userId uuid.UUID, username string) CreateNewPostParams {
 	return CreateNewPostParams{
-		ID:        uuid.New(),
-		Title:     "Test Post",
-		Body:      "This is a test post",
-		UserID:    userId,
-		Username:  username,
-		Status:    StatusDraft,
-		Category:  "Test",
-		CreatedAt: time.Now(),
+		Title:    "Test Post",
+		Body:     "This is a test post",
+		UserID:   userId,
+		Username: username,
+		Status:   StatusDraft,
+		Category: "Test",
 	}
 }
 
@@ -40,7 +37,6 @@ func TestPostCRUDOperations(t *testing.T) {
 	require.Equal(t, arg.Username, post.Username)
 	require.Equal(t, arg.Status, post.Status)
 	require.Equal(t, arg.Category, post.Category)
-	require.Equal(t, arg.CreatedAt.Day(), post.CreatedAt.Day())
 
 	/*
 		Test Get Post By ID

@@ -14,10 +14,12 @@ type Querier interface {
 	CreateNewComment(ctx context.Context, arg CreateNewCommentParams) (Comment, error)
 	CreateNewPost(ctx context.Context, arg CreateNewPostParams) (Post, error)
 	CreateNewUser(ctx context.Context, arg CreateNewUserParams) (User, error)
+	DeleteCommentByID(ctx context.Context, id uuid.UUID) error
 	DeletePostByID(ctx context.Context, id uuid.UUID) error
 	DeleteUserByID(ctx context.Context, id uuid.UUID) error
 	GetAllPosts(ctx context.Context) ([]GetAllPostsRow, error)
 	GetCommentsByPostID(ctx context.Context, postID uuid.UUID) ([]Comment, error)
+	GetCommentsByUserID(ctx context.Context, userID uuid.UUID) ([]Comment, error)
 	GetPostById(ctx context.Context, id uuid.UUID) (Post, error)
 	GetPostsByCategory(ctx context.Context, category string) ([]Post, error)
 	GetPostsByUserID(ctx context.Context, userID uuid.UUID) ([]Post, error)
