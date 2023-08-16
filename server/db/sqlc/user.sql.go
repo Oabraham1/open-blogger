@@ -13,30 +13,24 @@ import (
 )
 
 const createNewUser = `-- name: CreateNewUser :one
-INSERT INTO users (id, username, password, email, first_name, last_name, interests, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, username, password, email, first_name, last_name, interests, created_at
+INSERT INTO users (username, password, email, first_name, last_name) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, password, email, first_name, last_name, interests, created_at
 `
 
 type CreateNewUserParams struct {
-	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
-	Password  string    `json:"password"`
-	Email     string    `json:"email"`
-	FirstName string    `json:"first_name"`
-	LastName  string    `json:"last_name"`
-	Interests []string  `json:"interests"`
-	CreatedAt time.Time `json:"created_at"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 func (q *Queries) CreateNewUser(ctx context.Context, arg CreateNewUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createNewUser,
-		arg.ID,
 		arg.Username,
 		arg.Password,
 		arg.Email,
 		arg.FirstName,
 		arg.LastName,
-		arg.Interests,
-		arg.CreatedAt,
 	)
 	var i User
 	err := row.Scan(

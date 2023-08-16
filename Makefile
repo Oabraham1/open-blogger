@@ -19,6 +19,9 @@ migrateDown:
 sqlc-gen:
 	cd server && sqlc generate
 
+mock-gen:
+	cd server && mockgen -source=db/sqlc/store.go -destination=db/mock/store.go -package=mockdb
+
 start-server:
 	cd server && go run cmd/main.go
 

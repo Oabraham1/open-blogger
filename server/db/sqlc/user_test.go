@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -11,14 +10,11 @@ import (
 
 func createDummyUser(username, email string) CreateNewUserParams {
 	return CreateNewUserParams{
-		ID:        uuid.New(),
 		Username:  username,
 		Email:     email,
 		Password:  "testPassword",
 		FirstName: "testFirstName",
 		LastName:  "testLastName",
-		Interests: []string{"testInterest1", "testInterest2"},
-		CreatedAt: time.Now(),
 	}
 }
 
@@ -33,7 +29,6 @@ func TestUserCRUDOperations(t *testing.T) {
 	require.Equal(t, arg.Email, user.Email)
 	require.Equal(t, arg.FirstName, user.FirstName)
 	require.Equal(t, arg.LastName, user.LastName)
-	require.Equal(t, arg.Interests, user.Interests)
 
 	/* Test GetUserByID */
 	getUser, err := testStore.GetUserByID(context.Background(), user.ID)
@@ -43,7 +38,6 @@ func TestUserCRUDOperations(t *testing.T) {
 	require.Equal(t, arg.Email, getUser.Email)
 	require.Equal(t, arg.FirstName, getUser.FirstName)
 	require.Equal(t, arg.LastName, getUser.LastName)
-	require.Equal(t, arg.Interests, getUser.Interests)
 
 	/* Test GetUserByUsername */
 	getUserByUsername, err := testStore.GetUserByUsername(context.Background(), user.Username)
@@ -52,7 +46,6 @@ func TestUserCRUDOperations(t *testing.T) {
 	require.Equal(t, arg.Username, getUserByUsername.Username)
 	require.Equal(t, arg.FirstName, getUserByUsername.FirstName)
 	require.Equal(t, arg.LastName, getUserByUsername.LastName)
-	require.Equal(t, arg.Interests, getUserByUsername.Interests)
 	require.Equal(t, getUser.Username, getUserByUsername.Username)
 	require.Equal(t, getUser.FirstName, getUserByUsername.FirstName)
 	require.Equal(t, getUser.LastName, getUserByUsername.LastName)

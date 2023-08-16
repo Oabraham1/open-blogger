@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
 	"github.com/Oabraham1/open-blogger/server/util"
@@ -55,7 +54,7 @@ func GetUserAccountResponse(user db.User) UserAccountResponse {
 		Username: user.Username,
 		Email:    user.Email,
 		FullName: user.FirstName + " " + user.LastName,
-		JoinedOn: user.CreatedAt.UTC().String(),
+		JoinedOn: user.CreatedAt.UTC().Format("2006/01/02 15:04:05"),
 	}
 }
 
@@ -73,14 +72,11 @@ func (server *Server) CreateUserAccount(ctx *gin.Context) {
 	}
 
 	arg := db.CreateNewUserParams{
-		ID:        uuid.New(),
 		Username:  req.Username,
 		Password:  hashedPassword,
 		Email:     req.Email,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Interests: []string{},
-		CreatedAt: time.Now(),
 	}
 
 	user, err := server.DataStore.CreateNewUser(ctx, arg)

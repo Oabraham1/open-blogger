@@ -4,13 +4,13 @@ CREATE TYPE "status" AS ENUM (
 );
 
 CREATE TABLE "users" (
-  "id" uuid PRIMARY KEY,
+  "id" uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   "username" varchar UNIQUE NOT NULL,
   "password" varchar NOT NULL,
   "email" varchar UNIQUE NOT NULL,
   "first_name" varchar NOT NULL,
   "last_name" varchar NOT NULL,
-  "interests" varchar[] NOT NULL,
+  "interests" varchar[] NOT NULL DEFAULT '{}'::varchar[],
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
