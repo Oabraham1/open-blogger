@@ -12,7 +12,6 @@ func createDummyPost(t *testing.T, userId uuid.UUID, username string) CreateNewP
 	return CreateNewPostParams{
 		Title:    "Test Post",
 		Body:     "This is a test post",
-		UserID:   userId,
 		Username: username,
 		Status:   StatusDraft,
 		Category: "Test",
@@ -77,12 +76,12 @@ func TestPostCRUDOperations(t *testing.T) {
 	/*
 		Test Update Post Body
 	*/
-	updatePost := UpdatePostBodyByPostIDAndUserIDParams{
-		Body:   "This is an updated post",
-		UserID: arg.UserID,
-		ID:     post.ID,
+	updatePost := UpdatePostBodyParams{
+		Body:     "This is an updated post",
+		Username: arg.Username,
+		ID:       post.ID,
 	}
-	updatedPost, err := testStore.UpdatePostBodyByPostIDAndUserID(ctx, updatePost)
+	updatedPost, err := testStore.UpdatePostBody(ctx, updatePost)
 	require.NoError(t, err)
 	require.NotEmpty(t, updatedPost)
 	require.Equal(t, updatePost.Body, updatedPost.Body)
@@ -92,9 +91,9 @@ func TestPostCRUDOperations(t *testing.T) {
 		Test Update Post Status
 	*/
 	updatePostStatus := UpdatePostStatusParams{
-		Status: StatusPublished,
-		UserID: arg.UserID,
-		ID:     post.ID,
+		Status:   StatusPublished,
+		Username: arg.Username,
+		ID:       post.ID,
 	}
 	updatedPost, err = testStore.UpdatePostStatus(ctx, updatePostStatus)
 	require.NoError(t, err)
@@ -121,6 +120,6 @@ func TestPostCRUDOperations(t *testing.T) {
 		require.NoError(t, err)
 	}
 	// Delete user
-	err = testStore.DeleteUserByID(ctx, arg.UserID)
+	err = testStore.DeleteUserAccount(ctx, arg.Username)
 	require.NoError(t, err)
 }

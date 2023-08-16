@@ -26,9 +26,12 @@ func main() {
 }
 
 func runGinServer(config util.Config, store db.Store) {
-	server := api.NewServer(store, config)
+	server, err := api.NewServer(store, config)
+	if err != nil {
+		log.Fatal("cannot create server %w", err)
+	}
 
-	err := server.StartServer(config.HTTPServerAddress)
+	err = server.StartServer(config.HTTPServerAddress)
 	if err != nil {
 		log.Fatal("cannot start server")
 	}

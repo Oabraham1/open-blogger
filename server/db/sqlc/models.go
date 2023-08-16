@@ -56,7 +56,6 @@ func (ns NullStatus) Value() (driver.Value, error) {
 
 type Comment struct {
 	ID       uuid.UUID `json:"id"`
-	UserID   uuid.UUID `json:"user_id"`
 	Username string    `json:"username"`
 	PostID   uuid.UUID `json:"post_id"`
 	// Content of the comment
@@ -69,13 +68,23 @@ type Post struct {
 	Title string    `json:"title"`
 	// Content of the blog post
 	Body         string    `json:"body"`
-	UserID       uuid.UUID `json:"user_id"`
 	Username     string    `json:"username"`
 	Status       Status    `json:"status"`
 	Category     string    `json:"category"`
 	CreatedAt    time.Time `json:"created_at"`
 	PublishedAt  time.Time `json:"published_at"`
 	LastModified time.Time `json:"last_modified"`
+}
+
+type Session struct {
+	ID           uuid.UUID `json:"id"`
+	Username     string    `json:"username"`
+	RefreshToken string    `json:"refresh_token"`
+	UserAgent    string    `json:"user_agent"`
+	ClientIp     string    `json:"client_ip"`
+	IsBlocked    bool      `json:"is_blocked"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type User struct {

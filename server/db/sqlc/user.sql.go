@@ -46,52 +46,17 @@ func (q *Queries) CreateNewUser(ctx context.Context, arg CreateNewUserParams) (U
 	return i, err
 }
 
-const deleteUserByID = `-- name: DeleteUserByID :exec
-DELETE FROM users WHERE id = $1
+const deleteUserAccount = `-- name: DeleteUserAccount :exec
+DELETE FROM users WHERE username = $1
 `
 
-func (q *Queries) DeleteUserByID(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteUserByID, id)
+func (q *Queries) DeleteUserAccount(ctx context.Context, username string) error {
+	_, err := q.db.Exec(ctx, deleteUserAccount, username)
 	return err
 }
 
-const getPostsByUserID = `-- name: GetPostsByUserID :many
-SELECT id, title, body, user_id, username, status, category, created_at, published_at, last_modified FROM posts WHERE user_id = $1
-`
-
-func (q *Queries) GetPostsByUserID(ctx context.Context, userID uuid.UUID) ([]Post, error) {
-	rows, err := q.db.Query(ctx, getPostsByUserID, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Post{}
-	for rows.Next() {
-		var i Post
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Body,
-			&i.UserID,
-			&i.Username,
-			&i.Status,
-			&i.Category,
-			&i.CreatedAt,
-			&i.PublishedAt,
-			&i.LastModified,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getPostsByUserName = `-- name: GetPostsByUserName :many
-SELECT id, title, body, user_id, username, status, category, created_at, published_at, last_modified FROM posts WHERE username = $1
+SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE username = $1
 `
 
 func (q *Queries) GetPostsByUserName(ctx context.Context, username string) ([]Post, error) {
@@ -107,7 +72,6 @@ func (q *Queries) GetPostsByUserName(ctx context.Context, username string) ([]Po
 			&i.ID,
 			&i.Title,
 			&i.Body,
-			&i.UserID,
 			&i.Username,
 			&i.Status,
 			&i.Category,
@@ -165,30 +129,29 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 	return i, err
 }
 
-const updatePostBodyByPostIDAndUserID = `-- name: UpdatePostBodyByPostIDAndUserID :one
-UPDATE posts SET body = $1, last_modified = $2 WHERE id = $3 AND user_id = $4 RETURNING id, title, body, user_id, username, status, category, created_at, published_at, last_modified
+const updatePostBody = `-- name: UpdatePostBody :one
+UPDATE posts SET body = $1, last_modified = $2 WHERE id = $3 AND username = $4 RETURNING id, title, body, username, status, category, created_at, published_at, last_modified
 `
 
-type UpdatePostBodyByPostIDAndUserIDParams struct {
+type UpdatePostBodyParams struct {
 	Body         string    `json:"body"`
 	LastModified time.Time `json:"last_modified"`
 	ID           uuid.UUID `json:"id"`
-	UserID       uuid.UUID `json:"user_id"`
+	Username     string    `json:"username"`
 }
 
-func (q *Queries) UpdatePostBodyByPostIDAndUserID(ctx context.Context, arg UpdatePostBodyByPostIDAndUserIDParams) (Post, error) {
-	row := q.db.QueryRow(ctx, updatePostBodyByPostIDAndUserID,
+func (q *Queries) UpdatePostBody(ctx context.Context, arg UpdatePostBodyParams) (Post, error) {
+	row := q.db.QueryRow(ctx, updatePostBody,
 		arg.Body,
 		arg.LastModified,
 		arg.ID,
-		arg.UserID,
+		arg.Username,
 	)
 	var i Post
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.Body,
-		&i.UserID,
 		&i.Username,
 		&i.Status,
 		&i.Category,
@@ -199,16 +162,16 @@ func (q *Queries) UpdatePostBodyByPostIDAndUserID(ctx context.Context, arg Updat
 	return i, err
 }
 
-const updateUserInterestsByID = `-- name: UpdateUserInterestsByID :exec
-UPDATE users SET interests = $1 WHERE id = $2
+const updateUserInterestsByUsername = `-- name: UpdateUserInterestsByUsername :exec
+UPDATE users SET interests = $1 WHERE username = $2
 `
 
-type UpdateUserInterestsByIDParams struct {
-	Interests []string  `json:"interests"`
-	ID        uuid.UUID `json:"id"`
+type UpdateUserInterestsByUsernameParams struct {
+	Interests []string `json:"interests"`
+	Username  string   `json:"username"`
 }
 
-func (q *Queries) UpdateUserInterestsByID(ctx context.Context, arg UpdateUserInterestsByIDParams) error {
-	_, err := q.db.Exec(ctx, updateUserInterestsByID, arg.Interests, arg.ID)
+func (q *Queries) UpdateUserInterestsByUsername(ctx context.Context, arg UpdateUserInterestsByUsernameParams) error {
+	_, err := q.db.Exec(ctx, updateUserInterestsByUsername, arg.Interests, arg.Username)
 	return err
 }

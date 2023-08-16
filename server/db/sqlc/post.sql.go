@@ -13,27 +13,20 @@ import (
 )
 
 const createNewComment = `-- name: CreateNewComment :one
-INSERT INTO comments (user_id, username, post_id, body) VALUES ($1, $2, $3, $4) RETURNING id, user_id, username, post_id, body, created_at
+INSERT INTO comments (username, post_id, body) VALUES ($1, $2, $3) RETURNING id, username, post_id, body, created_at
 `
 
 type CreateNewCommentParams struct {
-	UserID   uuid.UUID `json:"user_id"`
 	Username string    `json:"username"`
 	PostID   uuid.UUID `json:"post_id"`
 	Body     string    `json:"body"`
 }
 
 func (q *Queries) CreateNewComment(ctx context.Context, arg CreateNewCommentParams) (Comment, error) {
-	row := q.db.QueryRow(ctx, createNewComment,
-		arg.UserID,
-		arg.Username,
-		arg.PostID,
-		arg.Body,
-	)
+	row := q.db.QueryRow(ctx, createNewComment, arg.Username, arg.PostID, arg.Body)
 	var i Comment
 	err := row.Scan(
 		&i.ID,
-		&i.UserID,
 		&i.Username,
 		&i.PostID,
 		&i.Body,
@@ -43,13 +36,12 @@ func (q *Queries) CreateNewComment(ctx context.Context, arg CreateNewCommentPara
 }
 
 const createNewPost = `-- name: CreateNewPost :one
-INSERT INTO posts (title, body, user_id, username, status, category, published_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, title, body, user_id, username, status, category, created_at, published_at, last_modified
+INSERT INTO posts (title, body, username, status, category, published_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, title, body, username, status, category, created_at, published_at, last_modified
 `
 
 type CreateNewPostParams struct {
 	Title       string    `json:"title"`
 	Body        string    `json:"body"`
-	UserID      uuid.UUID `json:"user_id"`
 	Username    string    `json:"username"`
 	Status      Status    `json:"status"`
 	Category    string    `json:"category"`
@@ -60,7 +52,6 @@ func (q *Queries) CreateNewPost(ctx context.Context, arg CreateNewPostParams) (P
 	row := q.db.QueryRow(ctx, createNewPost,
 		arg.Title,
 		arg.Body,
-		arg.UserID,
 		arg.Username,
 		arg.Status,
 		arg.Category,
@@ -71,7 +62,6 @@ func (q *Queries) CreateNewPost(ctx context.Context, arg CreateNewPostParams) (P
 		&i.ID,
 		&i.Title,
 		&i.Body,
-		&i.UserID,
 		&i.Username,
 		&i.Status,
 		&i.Category,
@@ -146,8 +136,25 @@ func (q *Queries) GetAllPosts(ctx context.Context) ([]GetAllPostsRow, error) {
 	return items, nil
 }
 
+const getCommentByID = `-- name: GetCommentByID :one
+SELECT id, username, post_id, body, created_at FROM comments WHERE id = $1
+`
+
+func (q *Queries) GetCommentByID(ctx context.Context, id uuid.UUID) (Comment, error) {
+	row := q.db.QueryRow(ctx, getCommentByID, id)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.PostID,
+		&i.Body,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getCommentsByPostID = `-- name: GetCommentsByPostID :many
-SELECT id, user_id, username, post_id, body, created_at FROM comments WHERE post_id = $1
+SELECT id, username, post_id, body, created_at FROM comments WHERE post_id = $1
 `
 
 func (q *Queries) GetCommentsByPostID(ctx context.Context, postID uuid.UUID) ([]Comment, error) {
@@ -161,7 +168,6 @@ func (q *Queries) GetCommentsByPostID(ctx context.Context, postID uuid.UUID) ([]
 		var i Comment
 		if err := rows.Scan(
 			&i.ID,
-			&i.UserID,
 			&i.Username,
 			&i.PostID,
 			&i.Body,
@@ -177,12 +183,12 @@ func (q *Queries) GetCommentsByPostID(ctx context.Context, postID uuid.UUID) ([]
 	return items, nil
 }
 
-const getCommentsByUserID = `-- name: GetCommentsByUserID :many
-SELECT id, user_id, username, post_id, body, created_at FROM comments WHERE user_id = $1
+const getCommentsByUserName = `-- name: GetCommentsByUserName :many
+SELECT id, username, post_id, body, created_at FROM comments WHERE username = $1
 `
 
-func (q *Queries) GetCommentsByUserID(ctx context.Context, userID uuid.UUID) ([]Comment, error) {
-	rows, err := q.db.Query(ctx, getCommentsByUserID, userID)
+func (q *Queries) GetCommentsByUserName(ctx context.Context, username string) ([]Comment, error) {
+	rows, err := q.db.Query(ctx, getCommentsByUserName, username)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +198,6 @@ func (q *Queries) GetCommentsByUserID(ctx context.Context, userID uuid.UUID) ([]
 		var i Comment
 		if err := rows.Scan(
 			&i.ID,
-			&i.UserID,
 			&i.Username,
 			&i.PostID,
 			&i.Body,
@@ -209,7 +214,7 @@ func (q *Queries) GetCommentsByUserID(ctx context.Context, userID uuid.UUID) ([]
 }
 
 const getPostById = `-- name: GetPostById :one
-SELECT id, title, body, user_id, username, status, category, created_at, published_at, last_modified FROM posts WHERE id = $1
+SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE id = $1
 `
 
 func (q *Queries) GetPostById(ctx context.Context, id uuid.UUID) (Post, error) {
@@ -219,7 +224,6 @@ func (q *Queries) GetPostById(ctx context.Context, id uuid.UUID) (Post, error) {
 		&i.ID,
 		&i.Title,
 		&i.Body,
-		&i.UserID,
 		&i.Username,
 		&i.Status,
 		&i.Category,
@@ -231,7 +235,7 @@ func (q *Queries) GetPostById(ctx context.Context, id uuid.UUID) (Post, error) {
 }
 
 const getPostsByCategory = `-- name: GetPostsByCategory :many
-SELECT id, title, body, user_id, username, status, category, created_at, published_at, last_modified FROM posts WHERE category = $1
+SELECT id, title, body, username, status, category, created_at, published_at, last_modified FROM posts WHERE category = $1
 `
 
 func (q *Queries) GetPostsByCategory(ctx context.Context, category string) ([]Post, error) {
@@ -247,7 +251,6 @@ func (q *Queries) GetPostsByCategory(ctx context.Context, category string) ([]Po
 			&i.ID,
 			&i.Title,
 			&i.Body,
-			&i.UserID,
 			&i.Username,
 			&i.Status,
 			&i.Category,
@@ -266,14 +269,14 @@ func (q *Queries) GetPostsByCategory(ctx context.Context, category string) ([]Po
 }
 
 const updatePostStatus = `-- name: UpdatePostStatus :one
-UPDATE posts SET status = $1, published_at = $2 WHERE id = $3 AND user_id = $4 RETURNING id, title, body, user_id, username, status, category, created_at, published_at, last_modified
+UPDATE posts SET status = $1, published_at = $2 WHERE id = $3 AND username = $4 RETURNING id, title, body, username, status, category, created_at, published_at, last_modified
 `
 
 type UpdatePostStatusParams struct {
 	Status      Status    `json:"status"`
 	PublishedAt time.Time `json:"published_at"`
 	ID          uuid.UUID `json:"id"`
-	UserID      uuid.UUID `json:"user_id"`
+	Username    string    `json:"username"`
 }
 
 func (q *Queries) UpdatePostStatus(ctx context.Context, arg UpdatePostStatusParams) (Post, error) {
@@ -281,14 +284,13 @@ func (q *Queries) UpdatePostStatus(ctx context.Context, arg UpdatePostStatusPara
 		arg.Status,
 		arg.PublishedAt,
 		arg.ID,
-		arg.UserID,
+		arg.Username,
 	)
 	var i Post
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.Body,
-		&i.UserID,
 		&i.Username,
 		&i.Status,
 		&i.Category,

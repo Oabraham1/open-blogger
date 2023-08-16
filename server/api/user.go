@@ -1,9 +1,12 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/Oabraham1/open-blogger/server/auth"
 	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
 	"github.com/Oabraham1/open-blogger/server/util"
 	"github.com/gin-gonic/gin"
@@ -27,17 +30,13 @@ type GetUserAccountByUsernameRequest struct {
 	Username string `uri:"username" binding:"required,alphanum,min=1"`
 }
 
-type GetUserByIDRequest struct {
-	ID string `uri:"id" binding:"required,min=1"`
-}
-
 type UpdateUserInterestsRequest struct {
-	ID        string   `json:"id" binding:"required"`
+	Username  string   `json:"username" binding:"required"`
 	Interests []string `json:"interests" binding:"required"`
 }
 
 type DeleteUserAccountRequest struct {
-	ID string `uri:"id" binding:"required"`
+	Username string `uri:"username" binding:"required"`
 }
 
 type UserAccountResponse struct {
@@ -46,6 +45,15 @@ type UserAccountResponse struct {
 	Email    string `json:"email"`
 	FullName string `json:"full_name"`
 	JoinedOn string `json:"joined_on"`
+}
+
+type LoginUserAccountResponse struct {
+	SessionID             uuid.UUID           `json:"session_id"`
+	AccessToken           string              `json:"access_token"`
+	ExpiresAt             time.Time           `json:"expires_at"`
+	RefreshToken          string              `json:"refresh_token"`
+	RefreshTokenExpiresAt time.Time           `json:"refresh_token_expires_at"`
+	UserAccount           UserAccountResponse `json:"user_account"`
 }
 
 func GetUserAccountResponse(user db.User) UserAccountResponse {
@@ -102,21 +110,58 @@ func (server *Server) LoginUser(ctx *gin.Context) {
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		if errors.Is(err, util.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
 
-	err = util.VerifyPassword(req.Password, user.Password)
+	err = util.VerifyPassword(user.Password, req.Password)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
 		return
 	}
 
-	rsp := GetUserAccountResponse(user)
+	token, payload, err := server.Authenticator.CreateToken(user.Username, server.Configurations.AccessTokenDuration)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	refreshToken, refreshPayload, err := server.Authenticator.CreateToken(user.Username, server.Configurations.RefreshTokenDuration)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	userSession, err := server.DataStore.CreateNewUserSession(ctx, db.CreateNewUserSessionParams{
+		Username:     user.Username,
+		RefreshToken: refreshToken,
+		UserAgent:    ctx.Request.UserAgent(),
+		ClientIp:     ctx.ClientIP(),
+		ExpiresAt:    refreshPayload.ExpiredAt,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	rsp := LoginUserAccountResponse{
+		SessionID:             userSession.ID,
+		AccessToken:           token,
+		ExpiresAt:             payload.ExpiredAt,
+		RefreshToken:          refreshToken,
+		RefreshTokenExpiresAt: refreshPayload.ExpiredAt,
+		UserAccount:           GetUserAccountResponse(user),
+	}
+
 	ctx.JSON(http.StatusOK, rsp)
 }
 
 func (server *Server) GetUserByUsername(ctx *gin.Context) {
+	// Modify previous implementation to check if user is logged in
 	var req GetUserAccountByUsernameRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
@@ -129,27 +174,9 @@ func (server *Server) GetUserByUsername(ctx *gin.Context) {
 		return
 	}
 
-	rsp := GetUserAccountResponse(user)
-	ctx.JSON(http.StatusOK, rsp)
-}
-
-func (server *Server) GetUserByID(ctx *gin.Context) {
-	var req GetUserByIDRequest
-	if err := ctx.ShouldBindUri(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return
-	}
-
-	// Convert string to uuid
-	userId, err := uuid.Parse(req.ID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return
-	}
-
-	user, err := server.DataStore.GetUserByID(ctx, userId)
-	if err != nil {
-		ctx.JSON(http.StatusNotFound, errorResponse(err))
+	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	if authenticationPayload.Username != user.Username {
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
 		return
 	}
 
@@ -164,25 +191,24 @@ func (server *Server) UpdateUserInterests(ctx *gin.Context) {
 		return
 	}
 
-	// Convert string to uuid
-	userId, err := uuid.Parse(req.ID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return
-	}
-
-	_, err = server.DataStore.GetUserByID(ctx, userId)
+	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, errorResponse(err))
 		return
 	}
 
-	arg := db.UpdateUserInterestsByIDParams{
-		ID:        userId,
+	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	if authenticationPayload.Username != user.Username {
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+
+	arg := db.UpdateUserInterestsByUsernameParams{
+		Username:  req.Username,
 		Interests: req.Interests,
 	}
 
-	err = server.DataStore.UpdateUserInterestsByID(ctx, arg)
+	err = server.DataStore.UpdateUserInterestsByUsername(ctx, arg)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
@@ -199,21 +225,20 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 	}
 	fmt.Println(req)
 
-	// Convert string to uuid
-	userId, err := uuid.Parse(req.ID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return
-	}
-
-	_, err = server.DataStore.GetUserByID(ctx, userId)
+	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, errorResponse(err))
 		return
 	}
 
+	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	if authenticationPayload.Username != user.Username {
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+
 	// Get all Comments by User ID
-	comments, err := server.DataStore.GetCommentsByUserID(ctx, userId)
+	comments, err := server.DataStore.GetCommentsByUserName(ctx, req.Username)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
@@ -227,7 +252,7 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 	}
 
 	// Get all Posts by User ID
-	posts, err := server.DataStore.GetPostsByUserID(ctx, userId)
+	posts, err := server.DataStore.GetPostsByUserName(ctx, user.Username)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
@@ -240,7 +265,7 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 		}
 	}
 
-	err = server.DataStore.DeleteUserByID(ctx, userId)
+	err = server.DataStore.DeleteUserAccount(ctx, user.Username)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return

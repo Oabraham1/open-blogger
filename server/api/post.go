@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Oabraham1/open-blogger/server/auth"
 	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,7 +14,6 @@ type CreatePostRequest struct {
 	Title    string `json:"title" binding:"required"`
 	Body     string `json:"body" binding:"required"`
 	UserName string `json:"username" binding:"required"`
-	UserID   string `json:"user_id" binding:"required"`
 	Status   string `json:"status" binding:"required"`
 	Category string `json:"category" binding:"required"`
 }
@@ -22,7 +22,6 @@ type CreateNewCommentRequest struct {
 	PostID   string `json:"post_id" binding:"required"`
 	Body     string `json:"body" binding:"required"`
 	UserName string `json:"username" binding:"required"`
-	UserID   string `json:"user_id" binding:"required"`
 }
 
 type GetPostByIDRequest struct {
@@ -38,14 +37,14 @@ type GetPostsByUsernameRequest struct {
 }
 
 type UpdatePostBodyRequest struct {
-	ID     string `json:"id" binding:"required"`
-	Body   string `json:"body" binding:"required"`
-	UserID string `json:"user_id" binding:"required"`
+	ID       string `json:"id" binding:"required"`
+	Body     string `json:"body" binding:"required"`
+	UserName string `json:"user_id" binding:"required"`
 }
 
 type UpdatePostStatusRequest struct {
-	ID     string `json:"id" binding:"required"`
-	UserID string `json:"user_id" binding:"required"`
+	ID       string `json:"id" binding:"required"`
+	UserName string `json:"user_id" binding:"required"`
 }
 
 type GetCommentsByPostIDRequest struct {
@@ -109,12 +108,23 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 		return
 	}
 
-	// convert userId string to uuid
-	userId, err := uuid.Parse(req.UserID)
+	user, err := server.DataStore.GetUserByUsername(ctx, req.UserName)
 	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	if user.Username != req.UserName {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
+
+	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.UserName {
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+
 	status := req.Status
 	if status != string(db.StatusDraft) && status != string(db.StatusPublished) {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
@@ -126,7 +136,6 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 		Title:    req.Title,
 		Body:     req.Body,
 		Username: req.UserName,
-		UserID:   userId,
 		Status:   dbStatus,
 		Category: req.Category,
 	}
@@ -151,10 +160,20 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 		return
 	}
 
-	// convert userId string to uuid
-	userId, err := uuid.Parse(req.UserID)
+	user, err := server.DataStore.GetUserByUsername(ctx, req.UserName)
 	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	if user.Username != req.UserName {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.UserName {
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
 		return
 	}
 
@@ -169,7 +188,6 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 		PostID:   postId,
 		Body:     req.Body,
 		Username: req.UserName,
-		UserID:   userId,
 	}
 
 	comment, err := server.DataStore.CreateNewComment(ctx, arg)
@@ -252,41 +270,6 @@ func (server *Server) GetPostsByUsername(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rsp)
 }
 
-func (server *Server) GetPostsByUserID(ctx *gin.Context) {
-	var req GetUserByIDRequest
-	if err := ctx.ShouldBindUri(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return
-	}
-
-	// convert userId string to uuid
-	userId, err := uuid.Parse(req.ID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return
-	}
-
-	// find user by username
-	_, err = server.DataStore.GetUserByID(ctx, userId)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return
-	}
-
-	posts, err := server.DataStore.GetPostsByUserID(ctx, userId)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return
-	}
-
-	var rsp []PostResponse
-	for _, post := range posts {
-		rsp = append(rsp, GetPostResponse(post))
-	}
-
-	ctx.JSON(http.StatusOK, rsp)
-}
-
 func (server *Server) UpdatePostBody(ctx *gin.Context) {
 	var req UpdatePostBodyRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -294,10 +277,11 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 		return
 	}
 
-	// convert userId string to uuid
-	userId, err := uuid.Parse(req.UserID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+	unauthorizedError := gin.H{"error": "Unauthorized"}
+
+	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	if authenticationPayload.Username != req.UserName {
+		ctx.JSON(http.StatusUnauthorized, unauthorizedError)
 		return
 	}
 
@@ -308,14 +292,14 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.UpdatePostBodyByPostIDAndUserIDParams{
+	arg := db.UpdatePostBodyParams{
 		ID:           postId,
 		Body:         req.Body,
-		UserID:       userId,
+		Username:     req.UserName,
 		LastModified: time.Now(),
 	}
 
-	post, err := server.DataStore.UpdatePostBodyByPostIDAndUserID(ctx, arg)
+	post, err := server.DataStore.UpdatePostBody(ctx, arg)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
@@ -331,10 +315,11 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 		return
 	}
 
-	// convert userId string to uuid
-	userId, err := uuid.Parse(req.UserID)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+	unauthorizedError := gin.H{"error": "Unauthorized"}
+
+	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	if authenticationPayload.Username != req.UserName {
+		ctx.JSON(http.StatusUnauthorized, unauthorizedError)
 		return
 	}
 
@@ -348,7 +333,7 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 	arg := db.UpdatePostStatusParams{
 		ID:          postId,
 		Status:      db.StatusPublished,
-		UserID:      userId,
+		Username:    req.UserName,
 		PublishedAt: time.Now(),
 	}
 
@@ -403,6 +388,20 @@ func (server *Server) DeleteComment(ctx *gin.Context) {
 		return
 	}
 
+	// find the comment
+	comment, err := server.DataStore.GetCommentByID(ctx, commentId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	// find the user
+	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	if authenticationPayload.Username != comment.Username {
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+
 	err = server.DataStore.DeleteCommentByID(ctx, commentId)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
@@ -423,6 +422,20 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 	postId, err := uuid.Parse(req.ID)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	// find the post
+	post, err := server.DataStore.GetPostById(ctx, postId)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	// find the user
+	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	if authenticationPayload.Username != post.Username {
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
 		return
 	}
 
