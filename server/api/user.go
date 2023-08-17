@@ -30,12 +30,12 @@ type GetUserAccountByUsernameRequest struct {
 }
 
 type UpdateUserInterestsRequest struct {
-	Username  string   `json:"username" binding:"required"`
+	Username  string   `json:"username" binding:"required,alphanum"`
 	Interests []string `json:"interests" binding:"required"`
 }
 
 type DeleteUserAccountRequest struct {
-	Username string `uri:"username" binding:"required"`
+	Username string `uri:"username" binding:"required,alphanum,min=1"`
 }
 
 type UserAccountResponse struct {
@@ -202,6 +202,10 @@ func (server *Server) UpdateUserInterests(ctx *gin.Context) {
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -246,6 +250,10 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}

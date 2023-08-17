@@ -390,6 +390,19 @@ func TestGetUserByUsername(t *testing.T) {
 				require.Equal(t, user.Username, gotUser.Username)
 			},
 		},
+		{
+			name:               "Unauthorized",
+			username:           user.Username,
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
 	}
 	for i := range testCases {
 		tc := testCases[i]
@@ -406,6 +419,259 @@ func TestGetUserByUsername(t *testing.T) {
 
 			url := fmt.Sprintf("/api/user/getByUsername/%s", tc.username)
 			request, err := http.NewRequest(http.MethodGet, url, nil)
+			require.NoError(t, err)
+
+			tc.setUpAuthenticator(t, request, server.Authenticator)
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+func TestUpdateUserInterests(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	testCases := []struct {
+		name               string
+		username           string
+		body               gin.H
+		setUpAuthenticator func(t *testing.T, request *http.Request, authenticator auth.Authenticator)
+		buildStubs         func(store *mockdb.MockStore)
+		checkResponse      func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name:     "OK",
+			username: user.Username,
+			body: gin.H{
+				"username":  user.Username,
+				"interests": []string{"test", "interests"},
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.UpdateUserInterestsByUsernameParams{
+					Username:  user.Username,
+					Interests: []string{"test", "interests"},
+				}
+				store.EXPECT().
+					UpdateUserInterestsByUsername(gomock.Any(), gomock.Eq(arg)).
+					Times(1).
+					Return(nil)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return(user, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				var response gin.H
+				err = json.Unmarshal(data, &response)
+				require.NoError(t, err)
+				require.Equal(t, "Interests updated successfully", response["message"])
+			},
+		},
+		{
+			name:     "Unauthorized",
+			username: user.Username,
+			body: gin.H{
+				"username":  user.Username,
+				"interests": []string{"test", "interests"},
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUserInterestsByUsername(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name:     "InvalidUsername",
+			username: user.Username,
+			body: gin.H{
+				"username":  "invalid-user#1",
+				"interests": []string{"test", "interests"},
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					UpdateUserInterestsByUsername(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:     "UserNotFound",
+			username: user.Username,
+			body: gin.H{
+				"username":  user.Username,
+				"interests": []string{"test", "interests"},
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(db.User{}, util.ErrRecordNotFound)
+				store.EXPECT().
+					UpdateUserInterestsByUsername(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			// Marshal body data to JSON
+			data, err := json.Marshal(tc.body)
+			require.NoError(t, err)
+
+			url := "/api/user/updateInterests"
+			request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
+			require.NoError(t, err)
+
+			tc.setUpAuthenticator(t, request, server.Authenticator)
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+func TestDeleteUserAccount(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	testCases := []struct {
+		name               string
+		username           string
+		setUpAuthenticator func(t *testing.T, request *http.Request, authenticator auth.Authenticator)
+		buildStubs         func(store *mockdb.MockStore)
+		checkResponse      func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name:     "OK",
+			username: user.Username,
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					GetCommentsByUserName(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return([]db.Comment{}, nil)
+				store.EXPECT().
+					GetPostsByUserName(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return([]db.Post{}, nil)
+				store.EXPECT().
+					GetUserSessionsByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return([]db.Session{}, nil)
+				store.EXPECT().
+					DeleteUserAccount(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return(nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				var response gin.H
+				err = json.Unmarshal(data, &response)
+				require.NoError(t, err)
+				require.Equal(t, "User account deleted successfully", response["message"])
+			},
+		},
+		{
+			name:               "Unauthorized",
+			username:           user.Username,
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					DeleteUserAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name:     "InvalidUsername",
+			username: "invalid-user#1",
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					DeleteUserAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:     "UserNotFound",
+			username: user.Username,
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(db.User{}, util.ErrRecordNotFound)
+				store.EXPECT().
+					DeleteUserAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/api/user/delete/%s", tc.username)
+			request, err := http.NewRequest(http.MethodDelete, url, nil)
 			require.NoError(t, err)
 
 			tc.setUpAuthenticator(t, request, server.Authenticator)
