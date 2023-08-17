@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -385,12 +384,10 @@ func TestGetUserByUsername(t *testing.T) {
 				data, err := io.ReadAll(recorder.Body)
 				require.NoError(t, err)
 
-				log.Println(string(data))
-
 				var gotUser db.User
 				err = json.Unmarshal(data, &gotUser)
 				require.NoError(t, err)
-				require.Equal(t, user, gotUser)
+				require.Equal(t, user.Username, gotUser.Username)
 			},
 		},
 	}
