@@ -35,7 +35,7 @@ CREATE TABLE "comments" (
 );
 
 CREATE TABLE "sessions" (
-  "id" uuid PRIMARY KEY,
+  "id" uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   "username" varchar NOT NULL,
   "refresh_token" varchar NOT NULL,
   "user_agent" varchar NOT NULL,

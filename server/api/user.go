@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -69,13 +68,13 @@ func GetUserAccountResponse(user db.User) UserAccountResponse {
 func (server *Server) CreateUserAccount(ctx *gin.Context) {
 	var req CreateUserAccountRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		server.BadRequestError(ctx)
 		return
 	}
 
 	hashedPassword, err := util.HashPassword(req.Password)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
@@ -90,49 +89,49 @@ func (server *Server) CreateUserAccount(ctx *gin.Context) {
 	user, err := server.DataStore.CreateNewUser(ctx, arg)
 	if err != nil {
 		if util.ErrorCode(err) == util.UniqueViolation {
-			ctx.JSON(http.StatusForbidden, errorResponse(err))
+			server.ForbiddenError(ctx)
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
 	rsp := GetUserAccountResponse(user)
-	ctx.JSON(http.StatusOK, rsp)
+	server.ReturnOK(ctx, rsp)
 }
 
 func (server *Server) LoginUser(ctx *gin.Context) {
 	var req LoginUserAccountRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		server.BadRequestError(ctx)
 		return
 	}
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		if errors.Is(err, util.ErrRecordNotFound) {
-			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			server.NotFoundError(ctx)
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
 	err = util.VerifyPassword(user.Password, req.Password)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		server.ForbiddenError(ctx)
 		return
 	}
 
 	token, payload, err := server.Authenticator.CreateToken(user.Username, server.Configurations.AccessTokenDuration)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
 	refreshToken, refreshPayload, err := server.Authenticator.CreateToken(user.Username, server.Configurations.RefreshTokenDuration)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
@@ -144,7 +143,7 @@ func (server *Server) LoginUser(ctx *gin.Context) {
 		ExpiresAt:    refreshPayload.ExpiredAt,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
@@ -157,31 +156,41 @@ func (server *Server) LoginUser(ctx *gin.Context) {
 		UserAccount:           GetUserAccountResponse(user),
 	}
 
-	ctx.JSON(http.StatusOK, rsp)
+	server.ReturnOK(ctx, rsp)
 }
 
 func (server *Server) GetUserByUsername(ctx *gin.Context) {
-	// Modify previous implementation to check if user is logged in
 	var req GetUserAccountByUsernameRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		server.BadRequestError(ctx)
 		return
 	}
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
-	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
-	if authenticationPayload.Username != user.Username {
-		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+	defer func() {
+		if r := recover(); r != nil {
+			server.UnauthorizedError(ctx)
+		}
+	}()
+
+	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
+	if !ok {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
+	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.Username {
+		server.UnauthorizedError(ctx)
 		return
 	}
 
 	rsp := GetUserAccountResponse(user)
-	ctx.JSON(http.StatusOK, rsp)
+	server.ReturnOK(ctx, rsp)
 }
 
 func (server *Server) UpdateUserInterests(ctx *gin.Context) {
@@ -193,13 +202,24 @@ func (server *Server) UpdateUserInterests(ctx *gin.Context) {
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
-	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
-	if authenticationPayload.Username != user.Username {
-		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+	defer func() {
+		if r := recover(); r != nil {
+			server.UnauthorizedError(ctx)
+		}
+	}()
+
+	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
+	if !ok {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
+	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.Username {
+		server.UnauthorizedError(ctx)
 		return
 	}
 
@@ -210,43 +230,53 @@ func (server *Server) UpdateUserInterests(ctx *gin.Context) {
 
 	err = server.DataStore.UpdateUserInterestsByUsername(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "Interests updated successfully"})
+	server.ReturnOK(ctx, gin.H{"message": "Interests updated successfully"})
 }
 
 func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 	var req DeleteUserAccountRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		server.BadRequestError(ctx)
 		return
 	}
-	fmt.Println(req)
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
-	authenticationPayload := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
-	if authenticationPayload.Username != user.Username {
-		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+	defer func() {
+		if r := recover(); r != nil {
+			server.UnauthorizedError(ctx)
+		}
+	}()
+
+	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
+	if !ok {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
+	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.Username {
+		server.UnauthorizedError(ctx)
 		return
 	}
 
 	// Get all Comments by User ID
 	comments, err := server.DataStore.GetCommentsByUserName(ctx, req.Username)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 	for _, comment := range comments {
 		err = server.DataStore.DeleteCommentByID(ctx, comment.ID)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+			server.InternalServerError(ctx)
 			return
 		}
 	}
@@ -254,22 +284,36 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 	// Get all Posts by User ID
 	posts, err := server.DataStore.GetPostsByUserName(ctx, user.Username)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 	for _, post := range posts {
 		err = server.DataStore.DeletePostByID(ctx, post.ID)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+			server.InternalServerError(ctx)
+			return
+		}
+	}
+
+	// Get all UserSessions by Username
+	userSessions, err := server.DataStore.GetUserSessionsByUsername(ctx, user.Username)
+	if err != nil {
+		server.InternalServerError(ctx)
+		return
+	}
+	for _, userSession := range userSessions {
+		err = server.DataStore.DeleteSessionById(ctx, userSession.ID)
+		if err != nil {
+			server.InternalServerError(ctx)
 			return
 		}
 	}
 
 	err = server.DataStore.DeleteUserAccount(ctx, user.Username)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		server.InternalServerError(ctx)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "Account deleted successfully"})
+	server.ReturnOK(ctx, gin.H{"message": "User account deleted successfully"})
 }

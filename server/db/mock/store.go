@@ -154,6 +154,20 @@ func (mr *MockStoreMockRecorder) DeletePostByID(ctx, id interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePostByID", reflect.TypeOf((*MockStore)(nil).DeletePostByID), ctx, id)
 }
 
+// DeleteSessionById mocks base method.
+func (m *MockStore) DeleteSessionById(ctx context.Context, id uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSessionById", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSessionById indicates an expected call of DeleteSessionById.
+func (mr *MockStoreMockRecorder) DeleteSessionById(ctx, id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSessionById", reflect.TypeOf((*MockStore)(nil).DeleteSessionById), ctx, id)
+}
+
 // DeleteUserAccount mocks base method.
 func (m *MockStore) DeleteUserAccount(ctx context.Context, username string) error {
 	m.ctrl.T.Helper()
@@ -316,6 +330,21 @@ func (m *MockStore) GetUserByUsername(ctx context.Context, username string) (db.
 func (mr *MockStoreMockRecorder) GetUserByUsername(ctx, username interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByUsername", reflect.TypeOf((*MockStore)(nil).GetUserByUsername), ctx, username)
+}
+
+// GetUserSessionsByUsername mocks base method.
+func (m *MockStore) GetUserSessionsByUsername(ctx context.Context, username string) ([]db.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserSessionsByUsername", ctx, username)
+	ret0, _ := ret[0].([]db.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserSessionsByUsername indicates an expected call of GetUserSessionsByUsername.
+func (mr *MockStoreMockRecorder) GetUserSessionsByUsername(ctx, username interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserSessionsByUsername", reflect.TypeOf((*MockStore)(nil).GetUserSessionsByUsername), ctx, username)
 }
 
 // UpdatePostBody mocks base method.

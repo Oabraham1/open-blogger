@@ -46,6 +46,15 @@ func (q *Queries) CreateNewUserSession(ctx context.Context, arg CreateNewUserSes
 	return i, err
 }
 
+const deleteSessionById = `-- name: DeleteSessionById :exec
+DELETE FROM sessions WHERE id = $1
+`
+
+func (q *Queries) DeleteSessionById(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteSessionById, id)
+	return err
+}
+
 const getSessionById = `-- name: GetSessionById :one
 SELECT id, username, refresh_token, user_agent, client_ip, is_blocked, expires_at, created_at FROM sessions WHERE id = $1 LIMIT 1
 `
@@ -64,4 +73,37 @@ func (q *Queries) GetSessionById(ctx context.Context, id uuid.UUID) (Session, er
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getUserSessionsByUsername = `-- name: GetUserSessionsByUsername :many
+SELECT id, username, refresh_token, user_agent, client_ip, is_blocked, expires_at, created_at FROM sessions WHERE username = $1 ORDER BY created_at DESC
+`
+
+func (q *Queries) GetUserSessionsByUsername(ctx context.Context, username string) ([]Session, error) {
+	rows, err := q.db.Query(ctx, getUserSessionsByUsername, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Session{}
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.RefreshToken,
+			&i.UserAgent,
+			&i.ClientIp,
+			&i.IsBlocked,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

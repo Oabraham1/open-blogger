@@ -17,6 +17,7 @@ type Querier interface {
 	CreateNewUserSession(ctx context.Context, arg CreateNewUserSessionParams) (Session, error)
 	DeleteCommentByID(ctx context.Context, id uuid.UUID) error
 	DeletePostByID(ctx context.Context, id uuid.UUID) error
+	DeleteSessionById(ctx context.Context, id uuid.UUID) error
 	DeleteUserAccount(ctx context.Context, username string) error
 	GetAllPosts(ctx context.Context) ([]GetAllPostsRow, error)
 	GetCommentByID(ctx context.Context, id uuid.UUID) (Comment, error)
@@ -28,6 +29,7 @@ type Querier interface {
 	GetSessionById(ctx context.Context, id uuid.UUID) (Session, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	GetUserSessionsByUsername(ctx context.Context, username string) ([]Session, error)
 	UpdatePostBody(ctx context.Context, arg UpdatePostBodyParams) (Post, error)
 	UpdatePostStatus(ctx context.Context, arg UpdatePostStatusParams) (Post, error)
 	UpdateUserInterestsByUsername(ctx context.Context, arg UpdateUserInterestsByUsernameParams) error

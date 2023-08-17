@@ -1,40 +1,15 @@
-package middleware
+package api
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/Oabraham1/open-blogger/server/api"
 	"github.com/Oabraham1/open-blogger/server/auth"
-	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
-	"github.com/Oabraham1/open-blogger/server/util"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
-
-func newTestServer(t *testing.T, store db.Store) *api.Server {
-	config := util.Config{
-		TokenSymmetricKey:   "01234567890123456789012345678901",
-		AccessTokenDuration: time.Minute,
-	}
-
-	server, err := api.NewServer(store, config)
-	require.NoError(t, err)
-	return server
-}
-
-func addAuth(t *testing.T, request *http.Request, authenticator auth.Authenticator, authType string, username string, duration time.Duration) {
-	token, payload, err := authenticator.CreateToken(username, duration)
-	require.NoError(t, err)
-	require.NotEmpty(t, payload)
-	require.NotEmpty(t, token)
-
-	authorizationHeader := fmt.Sprintf("%s %s", authType, token)
-	request.Header.Set(authorizationHeaderKey, authorizationHeader)
-}
 
 func TestAuthenticationMiddleware(t *testing.T) {
 	testCases := []struct {

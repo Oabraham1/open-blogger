@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/Oabraham1/open-blogger/server/auth"
 	mockdb "github.com/Oabraham1/open-blogger/server/db/mock"
 	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
 	"github.com/Oabraham1/open-blogger/server/util"
@@ -18,6 +21,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
+
+func addAuth(t *testing.T, request *http.Request, authenticator auth.Authenticator, authType string, username string, duration time.Duration) {
+	token, payload, err := authenticator.CreateToken(username, duration)
+	require.NoError(t, err)
+	require.NotEmpty(t, payload)
+	require.NotEmpty(t, token)
+
+	authorizationHeader := fmt.Sprintf("%s %s", authType, token)
+	request.Header.Set(authorizationHeaderKey, authorizationHeader)
+}
 
 type eqCreateUserParamsMatcher struct {
 	arg      db.CreateNewUserParams
@@ -284,7 +297,7 @@ func TestLoginUser(t *testing.T) {
 					Return(user, nil)
 			},
 			checkResponse: func(recorder *httptest.ResponseRecorder) {
-				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+				require.Equal(t, http.StatusForbidden, recorder.Code)
 			},
 		},
 		{
@@ -340,6 +353,65 @@ func TestLoginUser(t *testing.T) {
 			request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
 			require.NoError(t, err)
 
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+func TestGetUserByUsername(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	testCases := []struct {
+		name               string
+		username           string
+		setUpAuthenticator func(t *testing.T, request *http.Request, authenticator auth.Authenticator)
+		buildStubs         func(store *mockdb.MockStore)
+		checkResponse      func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name:     "OK",
+			username: user.Username,
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return(user, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				log.Println(string(data))
+
+				var gotUser db.User
+				err = json.Unmarshal(data, &gotUser)
+				require.NoError(t, err)
+				require.Equal(t, user, gotUser)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/api/user/getByUsername/%s", tc.username)
+			request, err := http.NewRequest(http.MethodGet, url, nil)
+			require.NoError(t, err)
+
+			tc.setUpAuthenticator(t, request, server.Authenticator)
 			server.Router.ServeHTTP(recorder, request)
 			tc.checkResponse(recorder)
 		})

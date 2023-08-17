@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/Oabraham1/open-blogger/server/auth"
 	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
@@ -14,6 +16,40 @@ const (
 	authorizationTypeBearer = "bearer"
 	authorizationPayloadKey = "authorization_payload"
 )
+
+func (server *Server) UnauthorizedError(ctx *gin.Context) {
+	err := errors.New("Unauthorized")
+	ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+}
+
+func (server *Server) InternalServerError(ctx *gin.Context) {
+	err := errors.New("internal server error")
+	ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+}
+
+func (server *Server) BadRequestError(ctx *gin.Context) {
+	err := errors.New("bad request")
+	ctx.JSON(http.StatusBadRequest, errorResponse(err))
+}
+
+func (server *Server) NotFoundError(ctx *gin.Context) {
+	err := errors.New("not found")
+	ctx.JSON(http.StatusNotFound, errorResponse(err))
+}
+
+func (server *Server) ForbiddenError(ctx *gin.Context) {
+	err := errors.New("forbidden")
+	ctx.JSON(http.StatusForbidden, errorResponse(err))
+}
+
+func (server *Server) ConflictError(ctx *gin.Context) {
+	err := errors.New("Conflict")
+	ctx.JSON(http.StatusConflict, errorResponse(err))
+}
+
+func (server *Server) ReturnOK(ctx *gin.Context, data interface{}) {
+	ctx.JSON(http.StatusOK, data)
+}
 
 /* Server serves the HTTP Requests */
 type Server struct {
@@ -42,11 +78,13 @@ func NewServer(store db.Store, config util.Config) (*Server, error) {
 func (server *Server) setupRouter() {
 	router := gin.Default()
 
+	authenticatedRoutes := router.Group("/").Use(AuthenticationMiddleware(server.Authenticator))
+
 	router.POST("/api/user/create", server.CreateUserAccount)
 	router.POST("/api/user/login", server.LoginUser)
-	router.GET("/api/user/getByUsername/:userName", server.GetUserByUsername)
-	router.POST("/api/user/updateInterests", server.UpdateUserInterests)
-	router.DELETE("/api/user/delete/:username", server.DeleteUserAccount)
+	authenticatedRoutes.GET("/api/user/getByUsername/:username", server.GetUserByUsername)
+	authenticatedRoutes.POST("/api/user/updateInterests", server.UpdateUserInterests)
+	authenticatedRoutes.DELETE("/api/user/delete/:username", server.DeleteUserAccount)
 
 	router.POST("/api/post/create", server.CreateNewPost)
 	router.GET("/api/post/getByID/:id", server.GetPostById)

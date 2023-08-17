@@ -1,4 +1,4 @@
-package middleware
+package api
 
 import (
 	"net/http"
@@ -6,12 +6,6 @@ import (
 
 	"github.com/Oabraham1/open-blogger/server/auth"
 	"github.com/gin-gonic/gin"
-)
-
-const (
-	authorizationHeaderKey  = "authorization"
-	authorizationTypeBearer = "bearer"
-	authorizationPayloadKey = "authorization_payload"
 )
 
 func AuthenticationMiddleware(authenticator auth.Authenticator) gin.HandlerFunc {
