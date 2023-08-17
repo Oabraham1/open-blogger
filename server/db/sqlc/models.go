@@ -59,21 +59,21 @@ type Comment struct {
 	Username string    `json:"username"`
 	PostID   uuid.UUID `json:"post_id"`
 	// Content of the comment
-	Body      string    `json:"body"`
-	CreatedAt time.Time `json:"created_at"`
+	Body      string `json:"body"`
+	CreatedAt string `json:"created_at"`
 }
 
 type Post struct {
 	ID    uuid.UUID `json:"id"`
 	Title string    `json:"title"`
 	// Content of the blog post
-	Body         string    `json:"body"`
-	Username     string    `json:"username"`
-	Status       Status    `json:"status"`
-	Category     string    `json:"category"`
-	CreatedAt    time.Time `json:"created_at"`
-	PublishedAt  time.Time `json:"published_at"`
-	LastModified time.Time `json:"last_modified"`
+	Body         string `json:"body"`
+	Username     string `json:"username"`
+	Status       Status `json:"status"`
+	Category     string `json:"category"`
+	CreatedAt    string `json:"created_at"`
+	PublishedAt  string `json:"published_at"`
+	LastModified string `json:"last_modified"`
 }
 
 type Session struct {
@@ -95,5 +95,5 @@ type User struct {
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
 	Interests []string  `json:"interests"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt string    `json:"created_at"`
 }

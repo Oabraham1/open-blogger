@@ -7,7 +7,6 @@ package db
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -135,7 +134,7 @@ UPDATE posts SET body = $1, last_modified = $2 WHERE id = $3 AND username = $4 R
 
 type UpdatePostBodyParams struct {
 	Body         string    `json:"body"`
-	LastModified time.Time `json:"last_modified"`
+	LastModified string    `json:"last_modified"`
 	ID           uuid.UUID `json:"id"`
 	Username     string    `json:"username"`
 }

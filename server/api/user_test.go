@@ -551,7 +551,7 @@ func TestUpdateUserInterests(t *testing.T) {
 			require.NoError(t, err)
 
 			url := "/api/user/updateInterests"
-			request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
+			request, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(data))
 			require.NoError(t, err)
 
 			tc.setUpAuthenticator(t, request, server.Authenticator)

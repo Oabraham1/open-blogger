@@ -15,50 +15,50 @@ import (
 type CreatePostRequest struct {
 	Title    string `json:"title" binding:"required"`
 	Body     string `json:"body" binding:"required"`
-	UserName string `json:"username" binding:"required"`
-	Status   string `json:"status" binding:"required"`
+	UserName string `json:"username" binding:"required,alphanum"`
+	Status   string `json:"status" binding:"required,oneof=draft published"`
 	Category string `json:"category" binding:"required"`
 }
 
 type CreateNewCommentRequest struct {
 	PostID   string `json:"post_id" binding:"required"`
 	Body     string `json:"body" binding:"required"`
-	UserName string `json:"username" binding:"required"`
+	UserName string `json:"username" binding:"required,alphanum"`
 }
 
 type GetPostByIDRequest struct {
-	ID string `json:"id" binding:"required"`
+	ID string `uri:"id" binding:"required,min=1"`
 }
 
 type GetPostsByCategoryRequest struct {
-	Category string `uri:"category" binding:"required"`
+	Category string `uri:"category" binding:"required,alphanum,min=1"`
 }
 
 type GetPostsByUsernameRequest struct {
-	Username string `uri:"username" binding:"required"`
+	Username string `uri:"username" binding:"required,alphanum,min=1"`
 }
 
 type UpdatePostBodyRequest struct {
-	ID       string `json:"id" binding:"required"`
+	ID       string `json:"post_id" binding:"required"`
 	Body     string `json:"body" binding:"required"`
-	UserName string `json:"user_id" binding:"required"`
+	UserName string `json:"username" binding:"required,alphanum"`
 }
 
 type UpdatePostStatusRequest struct {
-	ID       string `json:"id" binding:"required"`
-	UserName string `json:"user_id" binding:"required"`
+	ID       string `json:"post_id" binding:"required"`
+	UserName string `json:"username" binding:"required,alphanum"`
 }
 
 type GetCommentsByPostIDRequest struct {
-	PostID string `json:"post_id" binding:"required"`
+	PostID string `uri:"id" binding:"required,min=1"`
 }
 
 type DeleteCommentByIDRequest struct {
-	ID string `uri:"id" binding:"required"`
+	ID string `uri:"id" binding:"required,min=1"`
 }
 
 type DeletePostRequest struct {
-	ID string `json:"id" binding:"required"`
+	ID string `json:"id" binding:"required,min=1"`
 }
 
 type PostResponse struct {
@@ -88,8 +88,8 @@ func GetPostResponse(post db.Post) PostResponse {
 		UserName:     post.Username,
 		Status:       string(post.Status),
 		Category:     post.Category,
-		LastModified: post.LastModified.UTC().Format("2006/01/02 15:04:05"),
-		PublishedAt:  post.PublishedAt.UTC().Format("2006/01/02 15:04:05"),
+		LastModified: post.LastModified,
+		PublishedAt:  post.PublishedAt,
 	}
 }
 
@@ -99,7 +99,7 @@ func GetCommentResponse(comment db.Comment) CommentResponse {
 		PostID:    comment.PostID.String(),
 		Body:      comment.Body,
 		UserName:  comment.Username,
-		CreatedAt: comment.CreatedAt.UTC().Format("2006/01/02 15:04:05"),
+		CreatedAt: comment.CreatedAt,
 	}
 }
 
@@ -158,7 +158,7 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 	}
 
 	if dbStatus == db.StatusPublished {
-		arg.PublishedAt = time.Now()
+		arg.PublishedAt = time.Now().Format("2006-01-02 15:04:05")
 	}
 
 	post, err := server.DataStore.CreateNewPost(ctx, arg)
@@ -257,7 +257,9 @@ func (server *Server) GetPostsByCategory(ctx *gin.Context) {
 
 	var rsp []PostResponse
 	for _, post := range posts {
-		rsp = append(rsp, GetPostResponse(post))
+		if post.Status == db.StatusPublished {
+			rsp = append(rsp, GetPostResponse(post))
+		}
 	}
 
 	server.ReturnOK(ctx, rsp)
@@ -278,6 +280,10 @@ func (server *Server) GetPostById(ctx *gin.Context) {
 	}
 	post, err := server.DataStore.GetPostById(ctx, postId)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -295,6 +301,10 @@ func (server *Server) GetPostsByUsername(ctx *gin.Context) {
 	// find user by username
 	_, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -364,7 +374,7 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 		ID:           postId,
 		Body:         req.Body,
 		Username:     req.UserName,
-		LastModified: time.Now(),
+		LastModified: time.Now().Format("2006-01-02 15:04:05"),
 	}
 
 	post, err = server.DataStore.UpdatePostBody(ctx, arg)
@@ -385,6 +395,10 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.UserName)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -415,6 +429,10 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 
 	post, err := server.DataStore.GetPostById(ctx, postId)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -428,7 +446,7 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 		ID:          postId,
 		Status:      db.StatusPublished,
 		Username:    req.UserName,
-		PublishedAt: time.Now(),
+		PublishedAt: time.Now().Format("2006-01-02 15:04:05"),
 	}
 
 	post, err = server.DataStore.UpdatePostStatus(ctx, arg)

@@ -7,7 +7,6 @@ package db
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -40,12 +39,12 @@ INSERT INTO posts (title, body, username, status, category, published_at) VALUES
 `
 
 type CreateNewPostParams struct {
-	Title       string    `json:"title"`
-	Body        string    `json:"body"`
-	Username    string    `json:"username"`
-	Status      Status    `json:"status"`
-	Category    string    `json:"category"`
-	PublishedAt time.Time `json:"published_at"`
+	Title       string `json:"title"`
+	Body        string `json:"body"`
+	Username    string `json:"username"`
+	Status      Status `json:"status"`
+	Category    string `json:"category"`
+	PublishedAt string `json:"published_at"`
 }
 
 func (q *Queries) CreateNewPost(ctx context.Context, arg CreateNewPostParams) (Post, error) {
@@ -101,9 +100,9 @@ type GetAllPostsRow struct {
 	Body         string    `json:"body"`
 	Status       Status    `json:"status"`
 	Category     string    `json:"category"`
-	CreatedAt    time.Time `json:"created_at"`
-	PublishedAt  time.Time `json:"published_at"`
-	LastModified time.Time `json:"last_modified"`
+	CreatedAt    string    `json:"created_at"`
+	PublishedAt  string    `json:"published_at"`
+	LastModified string    `json:"last_modified"`
 }
 
 func (q *Queries) GetAllPosts(ctx context.Context) ([]GetAllPostsRow, error) {
@@ -274,7 +273,7 @@ UPDATE posts SET status = $1, published_at = $2 WHERE id = $3 AND username = $4 
 
 type UpdatePostStatusParams struct {
 	Status      Status    `json:"status"`
-	PublishedAt time.Time `json:"published_at"`
+	PublishedAt string    `json:"published_at"`
 	ID          uuid.UUID `json:"id"`
 	Username    string    `json:"username"`
 }

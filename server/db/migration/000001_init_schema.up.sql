@@ -11,7 +11,7 @@ CREATE TABLE "users" (
   "first_name" varchar NOT NULL,
   "last_name" varchar NOT NULL,
   "interests" varchar[] NOT NULL DEFAULT '{}'::varchar[],
-  "created_at" timestamptz NOT NULL DEFAULT (now())
+  "created_at" text NOT NULL DEFAULT TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY/MM/DD HH12:MI:SS')
 );
 
 CREATE TABLE "posts" (
@@ -21,9 +21,9 @@ CREATE TABLE "posts" (
   "username" varchar NOT NULL,
   "status" status NOT NULL,
   "category" varchar NOT NULL,
-  "created_at" timestamptz NOT NULL DEFAULT (now()),
-  "published_at" timestamptz NOT NULL,
-  "last_modified" timestamptz NOT NULL DEFAULT (now())
+  "created_at" text NOT NULL DEFAULT TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY/MM/DD HH12:MI:SS'),
+  "published_at" text NOT NULL,
+  "last_modified" text NOT NULL DEFAULT TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY/MM/DD HH12:MI:SS')
 );
 
 CREATE TABLE "comments" (
@@ -31,7 +31,7 @@ CREATE TABLE "comments" (
   "username" varchar NOT NULL,
   "post_id" uuid NOT NULL,
   "body" text NOT NULL,
-  "created_at" timestamptz NOT NULL DEFAULT (now())
+  "created_at" text NOT NULL DEFAULT TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY/MM/DD HH12:MI:SS')
 );
 
 CREATE TABLE "sessions" (

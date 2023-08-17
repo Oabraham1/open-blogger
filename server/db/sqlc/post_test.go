@@ -49,7 +49,7 @@ func TestPostCRUDOperations(t *testing.T) {
 	require.Equal(t, post.Username, getPost.Username)
 	require.Equal(t, post.Status, getPost.Status)
 	require.Equal(t, post.Category, getPost.Category)
-	require.Equal(t, post.CreatedAt.Day(), getPost.CreatedAt.Day())
+	require.Equal(t, post.CreatedAt, getPost.CreatedAt)
 
 	/*
 		Test Get Post By Category

@@ -3,6 +3,8 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -171,9 +173,6 @@ func TestCreatePost(t *testing.T) {
 				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
 			},
 			buildStubs: func(store *mockdb.MockStore) {
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1)
 				store.EXPECT().
 					CreateNewPost(gomock.Any(), gomock.Any()).
 					Times(0)
@@ -364,6 +363,35 @@ func TestCreateNewComment(t *testing.T) {
 				require.Equal(t, http.StatusNotFound, recorder.Code)
 			},
 		},
+		{
+			name: "User Not Found",
+			body: gin.H{
+				"body":     comment.Body,
+				"username": comment.Username,
+				"post_id":  comment.PostID,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.CreateNewCommentParams{
+					Body:     comment.Body,
+					Username: comment.Username,
+					PostID:   comment.PostID,
+				}
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return(db.User{}, util.ErrRecordNotFound)
+				store.EXPECT().
+					CreateNewComment(gomock.Any(), arg).
+					Times(0).
+					Return(db.Comment{}, util.ErrRecordNotFound)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
 	}
 	for i := range testCases {
 		tc := testCases[i]
@@ -392,3 +420,677 @@ func TestCreateNewComment(t *testing.T) {
 		})
 	}
 }
+
+func TestGetPostByCategory(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	post := generateDummyPost(t, user)
+	post.Status = "published"
+	post.LastModified = time.Now().Format("2006-01-02 15:04:05")
+
+	testCases := []struct {
+		name          string
+		category      string
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name:     "OK",
+			category: post.Category,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostsByCategory(gomock.Any(), gomock.Eq(post.Category)).
+					Times(1).
+					Return([]db.Post{post}, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var posts []PostResponse
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &posts)
+				require.NoError(t, err)
+				require.Equal(t, post.Body, posts[0].Body)
+			},
+		},
+		{
+			name:     "No Posts Found",
+			category: post.Category,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostsByCategory(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return([]db.Post{}, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var posts []db.Post
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &posts)
+				require.NoError(t, err)
+				require.Equal(t, len([]db.Post{}), len(posts))
+			},
+		},
+		{
+			name:     "Invalid Category",
+			category: "$",
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostsByCategory(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/api/post/getByCategory/%s", tc.category)
+			request, err := http.NewRequest(http.MethodGet, url, nil)
+			require.NoError(t, err)
+
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+func TestGetPostById(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	post := generateDummyPost(t, user)
+	post.Status = "published"
+	post.LastModified = time.Now().Format("2006-01-02 15:04:05")
+
+	testCases := []struct {
+		name          string
+		id            string
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name: "OK",
+			id:   post.ID.String(),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return(post, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var postResponse PostResponse
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &postResponse)
+				require.NoError(t, err)
+				require.Equal(t, post.Body, postResponse.Body)
+			},
+		},
+		{
+			name: "No Posts Found",
+			id:   post.ID.String(),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(db.Post{}, util.ErrRecordNotFound)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+		{
+			name: "Invalid Post ID",
+			id:   "  ",
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/api/post/getByID/%s", tc.id)
+			request, err := http.NewRequest(http.MethodGet, url, nil)
+			require.NoError(t, err)
+
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+func TestGetPostByUserName(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	post := generateDummyPost(t, user)
+	post.Status = "published"
+	post.LastModified = time.Now().Format("2006-01-02 15:04:05")
+
+	testCases := []struct {
+		name          string
+		username      string
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name:     "OK",
+			username: post.Username,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					GetPostsByUserName(gomock.Any(), gomock.Eq(post.Username)).
+					Times(1).
+					Return([]db.Post{post}, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var posts []PostResponse
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &posts)
+				require.NoError(t, err)
+				require.Equal(t, post.Body, posts[0].Body)
+			},
+		},
+		{
+			name:     "No Posts Found",
+			username: post.Username,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					GetPostsByUserName(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return([]db.Post{}, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var posts []db.Post
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &posts)
+				require.NoError(t, err)
+				require.Equal(t, len([]db.Post{}), len(posts))
+			},
+		},
+		{
+			name:     "Invalid Username",
+			username: "$",
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostsByUserName(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:     "User Not Found",
+			username: "invalidUsername",
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq("invalidUsername")).
+					Times(1).
+					Return(db.User{}, util.ErrRecordNotFound)
+				store.EXPECT().
+					GetPostsByUserName(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/api/post/getByUsername/%s", tc.username)
+			request, err := http.NewRequest(http.MethodGet, url, nil)
+			require.NoError(t, err)
+
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+func TestUpdatePostBody(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	post := generateDummyPost(t, user)
+	post.Status = "published"
+	post.LastModified = time.Now().Format("2006-01-02 15:04:05")
+
+	testCases := []struct {
+		name               string
+		body               gin.H
+		setUpAuthenticator func(t *testing.T, request *http.Request, authenticator auth.Authenticator)
+		buildStubs         func(store *mockdb.MockStore)
+		checkResponse      func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name: "OK",
+			body: gin.H{
+				"body":     post.Body,
+				"username": post.Username,
+				"post_id":  post.ID,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.UpdatePostBodyParams{
+					Body:         post.Body,
+					Username:     post.Username,
+					ID:           post.ID,
+					LastModified: post.LastModified,
+				}
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return(post, nil)
+				store.EXPECT().
+					UpdatePostBody(gomock.Any(), arg).
+					Times(1).
+					Return(post, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var postResponse PostResponse
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &postResponse)
+				require.NoError(t, err)
+				require.Equal(t, post.Body, postResponse.Body)
+			},
+		},
+		{
+			name: "Unauthorized",
+			body: gin.H{
+				"body":     post.Body,
+				"username": post.Username,
+				"post_id":  post.ID,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.UpdatePostBodyParams{
+					Body:     post.Body,
+					Username: post.Username,
+					ID:       post.ID,
+				}
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(0)
+				store.EXPECT().
+					UpdatePostBody(gomock.Any(), arg).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name: "Updating Another User's Post",
+			body: gin.H{
+				"body":     post.Body,
+				"username": post.Username,
+				"post_id":  post.ID,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, "anotherUserName", time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.UpdatePostBodyParams{
+					Body:     post.Body,
+					Username: post.Username,
+					ID:       post.ID,
+				}
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					UpdatePostBody(gomock.Any(), arg).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name: "Invalid Username",
+			body: gin.H{
+				"body":     post.Body,
+				"username": "_FJ",
+				"post_id":  post.ID,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, post.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.UpdatePostBodyParams{
+					Body:     post.Body,
+					Username: post.Username,
+					ID:       post.ID,
+				}
+				store.EXPECT().
+					UpdatePostBody(gomock.Any(), arg).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			// Marshal body data to JSON
+			data, err := json.Marshal(tc.body)
+			require.NoError(t, err)
+
+			url := "/api/post/updateBody"
+			request, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(data))
+			require.NoError(t, err)
+
+			tc.setUpAuthenticator(t, request, server.Authenticator)
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+func TestUpdatePostStatus(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	post := generateDummyPost(t, user)
+	post.Status = "draft"
+	post.PublishedAt = time.Now().Format("2006-01-02 15:04:05")
+	invalidPostId := uuid.New()
+
+	testCases := []struct {
+		name               string
+		body               gin.H
+		setUpAuthenticator func(t *testing.T, request *http.Request, authenticator auth.Authenticator)
+		buildStubs         func(store *mockdb.MockStore)
+		checkResponse      func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name: "OK",
+			body: gin.H{
+				"username": post.Username,
+				"post_id":  post.ID,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, post.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.UpdatePostStatusParams{
+					Username:    post.Username,
+					ID:          post.ID,
+					PublishedAt: post.PublishedAt,
+					Status:      db.StatusPublished,
+				}
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return(post, nil)
+				store.EXPECT().
+					UpdatePostStatus(gomock.Any(), arg).
+					Times(1).
+					Return(db.Post{
+						ID:          post.ID,
+						Username:    post.Username,
+						Body:        post.Body,
+						Status:      "published",
+						PublishedAt: post.PublishedAt,
+						Category:    post.Category,
+						CreatedAt:   post.CreatedAt,
+					}, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var postResponse PostResponse
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &postResponse)
+				require.NoError(t, err)
+				require.NotEqual(t, string(post.Status), postResponse.Status)
+				require.Equal(t, string(db.StatusPublished), postResponse.Status)
+			},
+		},
+		{
+			name: "Unauthorized",
+			body: gin.H{
+				"username": post.Username,
+				"post_id":  post.ID,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.UpdatePostStatusParams{
+					Username:    post.Username,
+					ID:          post.ID,
+					PublishedAt: post.PublishedAt,
+					Status:      db.StatusPublished,
+				}
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
+					Times(0)
+				store.EXPECT().
+					UpdatePostStatus(gomock.Any(), arg).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name: "Publishing Another User's Post",
+			body: gin.H{
+				"username": post.Username,
+				"post_id":  post.ID,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, "anotherUser", time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.UpdatePostStatusParams{
+					Username:    post.Username,
+					ID:          post.ID,
+					PublishedAt: post.PublishedAt,
+					Status:      db.StatusPublished,
+				}
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					UpdatePostStatus(gomock.Any(), arg).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name: "Invalid Username",
+			body: gin.H{
+				"username": "_FJ",
+				"post_id":  post.ID,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, post.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.UpdatePostStatusParams{
+					Username:    post.Username,
+					ID:          post.ID,
+					PublishedAt: post.PublishedAt,
+					Status:      db.StatusPublished,
+				}
+				store.EXPECT().
+					UpdatePostStatus(gomock.Any(), arg).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name: "Post Not Found",
+			body: gin.H{
+				"username": post.Username,
+				"post_id":  invalidPostId,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, post.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := db.UpdatePostStatusParams{
+					Username:    post.Username,
+					ID:          invalidPostId,
+					PublishedAt: post.PublishedAt,
+					Status:      db.StatusPublished,
+				}
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(invalidPostId)).
+					Times(1).
+					Return(db.Post{}, util.ErrRecordNotFound)
+				store.EXPECT().
+					UpdatePostStatus(gomock.Any(), arg).
+					Times(0).
+					Return(db.Post{}, util.ErrRecordNotFound)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+		{
+			name: "User Not Found",
+			body: gin.H{
+				"username": "invalidUsername",
+				"post_id":  post.ID,
+			},
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, post.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq("invalidUsername")).
+					Times(1).
+					Return(db.User{}, util.ErrRecordNotFound)
+				store.EXPECT().
+					UpdatePostStatus(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			// Marshal body data to JSON
+			data, err := json.Marshal(tc.body)
+			require.NoError(t, err)
+
+			url := "/api/post/publish"
+			request, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(data))
+			require.NoError(t, err)
+
+			tc.setUpAuthenticator(t, request, server.Authenticator)
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+// Implement all remaining tests for the following functions: GetCommentsByPostID, DeleteComment, and DeletePost
