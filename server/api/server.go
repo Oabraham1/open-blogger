@@ -86,17 +86,17 @@ func (server *Server) setupRouter() {
 	authenticatedRoutes.POST("/api/user/updateInterests", server.UpdateUserInterests)
 	authenticatedRoutes.DELETE("/api/user/delete/:username", server.DeleteUserAccount)
 
-	router.POST("/api/post/create", server.CreateNewPost)
+	authenticatedRoutes.POST("/api/post/create", server.CreateNewPost)
 	router.GET("/api/post/getByID/:id", server.GetPostById)
 	router.GET("/api/post/getByCategory", server.GetPostsByCategory)
 	router.GET("/api/post/getByUsername/:username", server.GetPostsByUsername)
-	router.POST("/api/post/updateBody", server.UpdatePostBody)
-	router.POST("/api/post/publish", server.UpdatePostStatus)
-	router.DELETE("/api/post/delete/:id", server.DeletePost)
+	authenticatedRoutes.POST("/api/post/updateBody", server.UpdatePostBody)
+	authenticatedRoutes.POST("/api/post/publish", server.UpdatePostStatus)
+	authenticatedRoutes.DELETE("/api/post/delete/:id", server.DeletePost)
 
-	router.POST("/api/comment/create", server.CreateNewComment)
+	authenticatedRoutes.POST("/api/comment/create", server.CreateNewComment)
 	router.GET("/api/comment/getByPostID/:id", server.GetCommentsByPostID)
-	router.DELETE("/api/comment/delete/:id", server.DeleteComment)
+	authenticatedRoutes.DELETE("/api/comment/delete/:id", server.DeleteComment)
 
 	server.Router = router
 }

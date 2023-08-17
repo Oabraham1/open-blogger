@@ -1,11 +1,13 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/Oabraham1/open-blogger/server/auth"
 	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
+	"github.com/Oabraham1/open-blogger/server/util"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -110,6 +112,10 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.UserName)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -125,7 +131,7 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 		}
 	}()
 
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
 	if !ok {
 		server.UnauthorizedError(ctx)
 		return
@@ -173,6 +179,10 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.UserName)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -188,7 +198,7 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 		}
 	}()
 
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
 	if !ok {
 		server.UnauthorizedError(ctx)
 		return
@@ -203,6 +213,17 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 	postId, err := uuid.Parse(req.PostID)
 	if err != nil {
 		server.BadRequestError(ctx)
+		return
+	}
+
+	// find post
+	_, err = server.DataStore.GetPostById(ctx, postId)
+	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
+		server.InternalServerError(ctx)
 		return
 	}
 
@@ -311,7 +332,7 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 		}
 	}()
 
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
 	if !ok {
 		server.UnauthorizedError(ctx)
 		return
@@ -374,7 +395,7 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 		}
 	}()
 
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
 	if !ok {
 		server.UnauthorizedError(ctx)
 		return
@@ -481,7 +502,7 @@ func (server *Server) DeleteComment(ctx *gin.Context) {
 		}
 	}()
 
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
 	if !ok {
 		server.UnauthorizedError(ctx)
 		return
@@ -535,7 +556,7 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 		}
 	}()
 
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(auth.AuthPayload)
+	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
 	if !ok {
 		server.UnauthorizedError(ctx)
 		return
