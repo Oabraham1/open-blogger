@@ -12,19 +12,19 @@ func AuthenticationMiddleware(authenticator auth.Authenticator) gin.HandlerFunc 
 	return func(c *gin.Context) {
 		authorizationHeader := c.GetHeader(authorizationHeaderKey)
 		if authorizationHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization Header"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Not Authorized"})
 			return
 		}
 
 		fields := strings.Fields(authorizationHeader)
 		if len(fields) < 2 {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Malformed Authorization Header"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Not Authorized"})
 			return
 		}
 
 		authorizationType := strings.ToLower(fields[0])
 		if authorizationType != authorizationTypeBearer {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unsupported Authorization Type"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Not Authorized"})
 			return
 		}
 
