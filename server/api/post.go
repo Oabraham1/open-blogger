@@ -58,7 +58,7 @@ type DeleteCommentByIDRequest struct {
 }
 
 type DeletePostRequest struct {
-	ID string `json:"id" binding:"required,min=1"`
+	ID string `uri:"id" binding:"required,min=1"`
 }
 
 type PostResponse struct {
@@ -472,6 +472,17 @@ func (server *Server) GetCommentsByPostID(ctx *gin.Context) {
 		return
 	}
 
+	// find post
+	_, err = server.DataStore.GetPostById(ctx, postId)
+	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
+		server.InternalServerError(ctx)
+		return
+	}
+
 	comments, err := server.DataStore.GetCommentsByPostID(ctx, postId)
 	if err != nil {
 		server.InternalServerError(ctx)
@@ -503,6 +514,21 @@ func (server *Server) DeleteComment(ctx *gin.Context) {
 	// find the comment
 	comment, err := server.DataStore.GetCommentByID(ctx, commentId)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
+		server.InternalServerError(ctx)
+		return
+	}
+
+	// find the post
+	_, err = server.DataStore.GetPostById(ctx, comment.PostID)
+	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -510,6 +536,10 @@ func (server *Server) DeleteComment(ctx *gin.Context) {
 	// find the user
 	user, err := server.DataStore.GetUserByUsername(ctx, comment.Username)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -557,6 +587,10 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 	// find the post
 	post, err := server.DataStore.GetPostById(ctx, postId)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -564,6 +598,10 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 	// find the user
 	user, err := server.DataStore.GetUserByUsername(ctx, post.Username)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}
@@ -588,6 +626,10 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 	// Delete all comments by postID
 	comments, err := server.DataStore.GetCommentsByPostID(ctx, postId)
 	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
 		server.InternalServerError(ctx)
 		return
 	}

@@ -1093,4 +1093,433 @@ func TestUpdatePostStatus(t *testing.T) {
 	}
 }
 
-// Implement all remaining tests for the following functions: GetCommentsByPostID, DeleteComment, and DeletePost
+func TestGetCommentsByPostID(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	post := generateDummyPost(t, user)
+	comment := generateDummyComment(t, user, post)
+
+	randomPostId := uuid.New()
+
+	testCases := []struct {
+		name          string
+		postID        string
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name:   "OK",
+			postID: post.ID.String(),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return(post, nil)
+				store.EXPECT().
+					GetCommentsByPostID(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return([]db.Comment{comment}, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var comments []CommentResponse
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &comments)
+				require.NoError(t, err)
+				require.Equal(t, comment.Body, comments[0].Body)
+			},
+		},
+		{
+			name:   "No Comments Found",
+			postID: post.ID.String(),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return(post, nil)
+				store.EXPECT().
+					GetCommentsByPostID(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return([]db.Comment{}, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var comments []db.Comment
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &comments)
+				require.NoError(t, err)
+				require.Equal(t, len([]db.Comment{}), len(comments))
+			},
+		},
+		{
+			name:   "Invalid Post ID",
+			postID: "  ",
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetCommentsByPostID(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:   "Post Not Found",
+			postID: randomPostId.String(),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(randomPostId)).
+					Times(1).
+					Return(db.Post{}, util.ErrRecordNotFound)
+				store.EXPECT().
+					GetCommentsByPostID(gomock.Any(), randomPostId).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/api/comment/getByPostID/%s", tc.postID)
+			request, err := http.NewRequest(http.MethodGet, url, nil)
+			require.NoError(t, err)
+
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+func TestDeleteComment(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	post := generateDummyPost(t, user)
+	comment := generateDummyComment(t, user, post)
+
+	randomCommentId := uuid.New()
+
+	testCases := []struct {
+		name               string
+		commentID          string
+		setUpAuthenticator func(t *testing.T, request *http.Request, authenticator auth.Authenticator)
+		buildStubs         func(store *mockdb.MockStore)
+		checkResponse      func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name:      "OK",
+			commentID: comment.ID.String(),
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetCommentByID(gomock.Any(), gomock.Eq(comment.ID)).
+					Times(1).
+					Return(comment, nil)
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return(post, nil)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					DeleteCommentByID(gomock.Any(), gomock.Eq(comment.ID)).
+					Times(1).
+					Return(nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+			},
+		},
+		{
+			name:               "Unauthorized",
+			commentID:          comment.ID.String(),
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetCommentByID(gomock.Any(), gomock.Eq(comment.ID)).
+					Times(0)
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(0)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(0)
+				store.EXPECT().
+					DeleteCommentByID(gomock.Any(), gomock.Eq(comment.ID)).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name:      "Deleting Another User's Comment",
+			commentID: comment.ID.String(),
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, "anotherUser", time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetCommentByID(gomock.Any(), gomock.Eq(comment.ID)).
+					Times(1).
+					Return(comment, nil)
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return(post, nil)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(comment.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					DeleteCommentByID(gomock.Any(), gomock.Eq(comment.ID)).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name:      "Invalid Comment ID",
+			commentID: "  ",
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetCommentByID(gomock.Any(), gomock.Any()).
+					Times(0)
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Any()).
+					Times(0)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Any()).
+					Times(0)
+				store.EXPECT().
+					DeleteCommentByID(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:      "Comment Not Found",
+			commentID: randomCommentId.String(),
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetCommentByID(gomock.Any(), gomock.Eq(randomCommentId)).
+					Times(1).
+					Return(db.Comment{}, util.ErrRecordNotFound)
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Any()).
+					Times(0)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Any()).
+					Times(0)
+				store.EXPECT().
+					DeleteCommentByID(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/api/comment/delete/%s", tc.commentID)
+			request, err := http.NewRequest(http.MethodDelete, url, nil)
+			require.NoError(t, err)
+
+			tc.setUpAuthenticator(t, request, server.Authenticator)
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+func TestDeletePost(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	post := generateDummyPost(t, user)
+
+	randomPostId := uuid.New()
+
+	testCases := []struct {
+		name               string
+		postID             string
+		setUpAuthenticator func(t *testing.T, request *http.Request, authenticator auth.Authenticator)
+		buildStubs         func(store *mockdb.MockStore)
+		checkResponse      func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name:   "OK",
+			postID: post.ID.String(),
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return(post, nil)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					GetCommentsByPostID(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return([]db.Comment{}, nil)
+				store.EXPECT().
+					DeletePostByID(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return(nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+			},
+		},
+		{
+			name:               "Unauthorized",
+			postID:             post.ID.String(),
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(0)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
+					Times(0)
+				store.EXPECT().
+					DeletePostByID(gomock.Any(), gomock.Eq(post.ID)).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name:   "Deleting Another User's Post",
+			postID: post.ID.String(),
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, "anotherUser", time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
+					Times(1).
+					Return(post, nil)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
+					Times(1).
+					Return(user, nil)
+				store.EXPECT().
+					DeletePostByID(gomock.Any(), gomock.Eq(post.ID)).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name:   "Invalid Post ID",
+			postID: "  ",
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Any()).
+					Times(0)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Any()).
+					Times(0)
+				store.EXPECT().
+					DeletePostByID(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:   "Post Not Found",
+			postID: randomPostId.String(),
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostById(gomock.Any(), gomock.Eq(randomPostId)).
+					Times(1).
+					Return(db.Post{}, util.ErrRecordNotFound)
+				store.EXPECT().
+					GetUserByUsername(gomock.Any(), gomock.Any()).
+					Times(0)
+				store.EXPECT().
+					DeletePostByID(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/api/post/delete/%s", tc.postID)
+			request, err := http.NewRequest(http.MethodDelete, url, nil)
+			require.NoError(t, err)
+
+			tc.setUpAuthenticator(t, request, server.Authenticator)
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
