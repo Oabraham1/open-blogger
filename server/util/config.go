@@ -17,6 +17,7 @@ type Config struct {
 	TokenSymmetricKey    string        `mapstructure:"TOKEN_SYM_KEY"`
 	AccessTokenDuration  time.Duration `mapstructure:"ACCESS_TOKEN_DURATION"`
 	RefreshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`
+	MongoURI             string        `mapstructure:"MONGO_URI"`
 }
 
 /* LoadConfig reads configuration from file or environment variables. */

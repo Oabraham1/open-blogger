@@ -4,10 +4,22 @@ start-postgres-server:
 	@echo "Starting postgres server"
 	docker run --name openBloggerPostgres -p 5432:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -d postgres:15-alpine
 
-createdb:
+stop-postgres-server:
+	@echo "Stopping postgres server"
+	docker stop openBloggerPostgres
+
+start-mongo-server:
+	@echo "Starting mongo server"
+	docker run --name openBloggerMongo -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=secret -d mongo:7.0.0
+
+stop-mongo-server:
+	@echo "Stopping mongo server"
+	docker stop openBloggerMongo
+
+createsqldb:
 	docker exec -it openBloggerPostgres createdb --username=root --owner=root openBloggerDB
 
-dropdb:
+dropsqldb:
 	docker exec -it openBloggerPostgres dropdb openBloggerDB
 
 migrateUp:
