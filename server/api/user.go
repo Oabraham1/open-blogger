@@ -6,6 +6,7 @@ import (
 	"time"
 
 	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
+	logger "github.com/Oabraham1/open-blogger/server/log"
 	"github.com/Oabraham1/open-blogger/server/util"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -67,6 +68,7 @@ func GetUserAccountResponse(user db.User) UserAccountResponse {
 func (server *Server) CreateUserAccount(ctx *gin.Context) {
 	var req CreateUserAccountRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.LogError(err.Error(), "CreateUserAccount")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -88,6 +90,7 @@ func (server *Server) CreateUserAccount(ctx *gin.Context) {
 	user, err := server.DataStore.CreateNewUser(ctx, arg)
 	if err != nil {
 		if util.ErrorCode(err) == util.UniqueViolation {
+			logger.LogError(err.Error(), "CreateUserAccount")
 			server.ForbiddenError(ctx)
 			return
 		}
@@ -102,12 +105,14 @@ func (server *Server) CreateUserAccount(ctx *gin.Context) {
 func (server *Server) LoginUser(ctx *gin.Context) {
 	var req LoginUserAccountRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.LogError(err.Error(), "LoginUser")
 		server.BadRequestError(ctx)
 		return
 	}
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "LoginUser")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -118,18 +123,21 @@ func (server *Server) LoginUser(ctx *gin.Context) {
 
 	err = util.VerifyPassword(user.Password, req.Password)
 	if err != nil {
+		logger.LogError(err.Error(), "LoginUser")
 		server.ForbiddenError(ctx)
 		return
 	}
 
 	token, payload, err := server.Authenticator.CreateToken(user.Username, server.Configurations.AccessTokenDuration)
 	if err != nil {
+		logger.LogError(err.Error(), "LoginUser")
 		server.InternalServerError(ctx)
 		return
 	}
 
 	refreshToken, refreshPayload, err := server.Authenticator.CreateToken(user.Username, server.Configurations.RefreshTokenDuration)
 	if err != nil {
+		logger.LogError(err.Error(), "LoginUser")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -142,6 +150,7 @@ func (server *Server) LoginUser(ctx *gin.Context) {
 		ExpiresAt:    refreshPayload.ExpiredAt,
 	})
 	if err != nil {
+		logger.LogError(err.Error(), "LoginUser")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -161,6 +170,7 @@ func (server *Server) LoginUser(ctx *gin.Context) {
 func (server *Server) GetUserByUsername(ctx *gin.Context) {
 	var req GetUserAccountByUsernameRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
+		logger.LogError(err.Error(), "GetUserByUsername")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -168,17 +178,20 @@ func (server *Server) GetUserByUsername(ctx *gin.Context) {
 	// get auth payload
 	authenticationPayload := server.GetAuthPayload(ctx)
 	if authenticationPayload == nil {
+		logger.LogError("authentication payload is nil", "GetUserByUsername")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != req.Username {
+		logger.LogError("authentication payload username does not match request username", "GetUserByUsername")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "GetUserByUsername")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -190,6 +203,7 @@ func (server *Server) GetUserByUsername(ctx *gin.Context) {
 func (server *Server) UpdateUserInterests(ctx *gin.Context) {
 	var req UpdateUserInterestsRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.LogError(err.Error(), "UpdateUserInterests")
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
@@ -197,17 +211,20 @@ func (server *Server) UpdateUserInterests(ctx *gin.Context) {
 	// get auth payload
 	authenticationPayload := server.GetAuthPayload(ctx)
 	if authenticationPayload == nil {
+		logger.LogError("authentication payload is nil", "UpdateUserInterests")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != req.Username {
+		logger.LogError("authentication payload username does not match request username", "UpdateUserInterests")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	_, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "UpdateUserInterests")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -223,6 +240,7 @@ func (server *Server) UpdateUserInterests(ctx *gin.Context) {
 
 	err = server.DataStore.UpdateUserInterestsByUsername(ctx, arg)
 	if err != nil {
+		logger.LogError(err.Error(), "UpdateUserInterests")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -233,6 +251,7 @@ func (server *Server) UpdateUserInterests(ctx *gin.Context) {
 func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 	var req DeleteUserAccountRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
+		logger.LogError(err.Error(), "DeleteUserAccount")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -240,17 +259,20 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 	// get auth payload
 	authenticationPayload := server.GetAuthPayload(ctx)
 	if authenticationPayload == nil {
+		logger.LogError("authentication payload is nil", "DeleteUserAccount")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != req.Username {
+		logger.LogError("authentication payload username does not match request username", "DeleteUserAccount")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "DeleteUserAccount")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -262,12 +284,14 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 	// Get all Comments by User ID
 	comments, err := server.DataStore.GetCommentsByUserName(ctx, req.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "DeleteUserAccount")
 		server.InternalServerError(ctx)
 		return
 	}
 	for _, comment := range comments {
 		err = server.DataStore.DeleteCommentByID(ctx, comment.ID)
 		if err != nil {
+			logger.LogError(err.Error(), "DeleteUserAccount")
 			server.InternalServerError(ctx)
 			return
 		}
@@ -276,12 +300,14 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 	// Get all Posts by User ID
 	posts, err := server.DataStore.GetPostsByUserName(ctx, user.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "DeleteUserAccount")
 		server.InternalServerError(ctx)
 		return
 	}
 	for _, post := range posts {
 		err = server.DataStore.DeletePostByID(ctx, post.ID)
 		if err != nil {
+			logger.LogError(err.Error(), "DeleteUserAccount")
 			server.InternalServerError(ctx)
 			return
 		}
@@ -290,12 +316,14 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 	// Get all UserSessions by Username
 	userSessions, err := server.DataStore.GetUserSessionsByUsername(ctx, user.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "DeleteUserAccount")
 		server.InternalServerError(ctx)
 		return
 	}
 	for _, userSession := range userSessions {
 		err = server.DataStore.DeleteSessionById(ctx, userSession.ID)
 		if err != nil {
+			logger.LogError(err.Error(), "DeleteUserAccount")
 			server.InternalServerError(ctx)
 			return
 		}
@@ -303,6 +331,7 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 
 	err = server.DataStore.DeleteUserAccount(ctx, user.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "DeleteUserAccount")
 		server.InternalServerError(ctx)
 		return
 	}

@@ -2,9 +2,11 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
+	logger "github.com/Oabraham1/open-blogger/server/log"
 	"github.com/Oabraham1/open-blogger/server/util"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -104,6 +106,7 @@ func GetCommentResponse(comment db.Comment) CommentResponse {
 func (server *Server) CreateNewPost(ctx *gin.Context) {
 	var req CreatePostRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.LogError(err.Error(), "CreateNewPost")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -111,17 +114,20 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 	// get auth payload
 	authenticationPayload := server.GetAuthPayload(ctx)
 	if authenticationPayload == nil {
+		logger.LogError("authentication payload is nil", "CreateNewPost")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != req.Username {
+		logger.LogError("authentication payload username does not match request username", "CreateNewPost")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	status := req.Status
 	if status != string(db.StatusDraft) && status != string(db.StatusPublished) {
+		logger.LogError(fmt.Sprintf("invalid status %s", status), "CreateNewPost")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -141,6 +147,7 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 
 	post, err := server.DataStore.CreateNewPost(ctx, arg)
 	if err != nil {
+		logger.LogError(err.Error(), "CreateNewPost")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -151,6 +158,7 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 func (server *Server) CreateNewComment(ctx *gin.Context) {
 	var req CreateNewCommentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.LogError(err.Error(), "CreateNewComment")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -158,11 +166,13 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 	// get auth payload
 	authenticationPayload := server.GetAuthPayload(ctx)
 	if authenticationPayload == nil {
+		logger.LogError("authentication payload is nil", "CreateNewComment")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != req.Username {
+		logger.LogError("authentication payload username does not match request username", "CreateNewComment")
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -170,6 +180,7 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 	// convert postId string int32
 	postId, err := uuid.Parse(req.PostID)
 	if err != nil {
+		logger.LogError(err.Error(), "CreateNewComment")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -177,6 +188,7 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 	// find post
 	_, err = server.DataStore.GetPostById(ctx, postId)
 	if err != nil {
+		logger.LogError(err.Error(), "CreateNewComment")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -193,6 +205,7 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 
 	comment, err := server.DataStore.CreateNewComment(ctx, arg)
 	if err != nil {
+		logger.LogError(err.Error(), "CreateNewComment")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -203,12 +216,14 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 func (server *Server) GetPostsByCategory(ctx *gin.Context) {
 	var req GetPostsByCategoryRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
+		logger.LogError(err.Error(), "GetPostsByCategory")
 		server.BadRequestError(ctx)
 		return
 	}
 
 	posts, err := server.DataStore.GetPostsByCategory(ctx, req.Category)
 	if err != nil {
+		logger.LogError(err.Error(), "GetPostsByCategory")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -226,6 +241,7 @@ func (server *Server) GetPostsByCategory(ctx *gin.Context) {
 func (server *Server) GetPostById(ctx *gin.Context) {
 	var req GetPostByIDRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
+		logger.LogError(err.Error(), "GetPostById")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -233,11 +249,13 @@ func (server *Server) GetPostById(ctx *gin.Context) {
 	// convert postId string to uuid
 	postId, err := uuid.Parse(req.ID)
 	if err != nil {
+		logger.LogError(err.Error(), "GetPostById")
 		server.BadRequestError(ctx)
 		return
 	}
 	post, err := server.DataStore.GetPostById(ctx, postId)
 	if err != nil {
+		logger.LogError(err.Error(), "GetPostById")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -252,6 +270,7 @@ func (server *Server) GetPostById(ctx *gin.Context) {
 func (server *Server) GetPublishedPostsByUsername(ctx *gin.Context) {
 	var req GetPostsByUsernameRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
+		logger.LogError(err.Error(), "GetPublishedPostsByUsername")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -259,6 +278,7 @@ func (server *Server) GetPublishedPostsByUsername(ctx *gin.Context) {
 	// find user by username
 	_, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "GetPublishedPostsByUsername")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -269,6 +289,7 @@ func (server *Server) GetPublishedPostsByUsername(ctx *gin.Context) {
 
 	posts, err := server.DataStore.GetPostsByUserName(ctx, req.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "GetPublishedPostsByUsername")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -286,6 +307,7 @@ func (server *Server) GetPublishedPostsByUsername(ctx *gin.Context) {
 func (server *Server) GetDraftPostsByUsername(ctx *gin.Context) {
 	var req GetPostsByUsernameRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
+		logger.LogError(err.Error(), "GetDraftPostsByUsername")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -293,17 +315,20 @@ func (server *Server) GetDraftPostsByUsername(ctx *gin.Context) {
 	// get auth payload
 	authenticationPayload := server.GetAuthPayload(ctx)
 	if authenticationPayload == nil {
+		logger.LogError("authentication payload is nil", "GetDraftPostsByUsername")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != req.Username {
+		logger.LogError("authentication payload username does not match request username", "GetDraftPostsByUsername")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	posts, err := server.DataStore.GetPostsByUserName(ctx, req.Username)
 	if err != nil {
+		logger.LogError(err.Error(), "GetDraftPostsByUsername")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -324,6 +349,7 @@ func (server *Server) GetDraftPostsByUsername(ctx *gin.Context) {
 func (server *Server) UpdatePostBody(ctx *gin.Context) {
 	var req UpdatePostBodyRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.LogError(err.Error(), "UpdatePostBody")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -331,11 +357,13 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 	// get auth payload
 	authenticationPayload := server.GetAuthPayload(ctx)
 	if authenticationPayload == nil {
+		logger.LogError("authentication payload is nil", "UpdatePostBody")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != req.Username {
+		logger.LogError("authentication payload username does not match request username", "UpdatePostBody")
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -343,17 +371,20 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 	// convert postId string to uuid
 	postId, err := uuid.Parse(req.ID)
 	if err != nil {
+		logger.LogError(err.Error(), "UpdatePostBody")
 		server.BadRequestError(ctx)
 		return
 	}
 
 	post, err := server.DataStore.GetPostById(ctx, postId)
 	if err != nil {
+		logger.LogError(err.Error(), "UpdatePostBody")
 		server.InternalServerError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != post.Username {
+		logger.LogError("authentication payload username does not match post username", "UpdatePostBody")
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -367,6 +398,7 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 
 	post, err = server.DataStore.UpdatePostBody(ctx, arg)
 	if err != nil {
+		logger.LogError(err.Error(), "UpdatePostBody")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -377,6 +409,7 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 	var req UpdatePostStatusRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.LogError(err.Error(), "UpdatePostStatus")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -384,11 +417,13 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 	// get auth payload
 	authenticationPayload := server.GetAuthPayload(ctx)
 	if authenticationPayload == nil {
+		logger.LogError("authentication payload is nil", "UpdatePostStatus")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != req.Username {
+		logger.LogError("authentication payload username does not match request username", "UpdatePostStatus")
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -396,12 +431,14 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 	// convert postId string to uuid
 	postId, err := uuid.Parse(req.ID)
 	if err != nil {
+		logger.LogError(err.Error(), "UpdatePostStatus")
 		server.BadRequestError(ctx)
 		return
 	}
 
 	post, err := server.DataStore.GetPostById(ctx, postId)
 	if err != nil {
+		logger.LogError(err.Error(), "UpdatePostStatus")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -411,6 +448,7 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 	}
 
 	if authenticationPayload.Username != post.Username {
+		logger.LogError("authentication payload username does not match post username", "UpdatePostStatus")
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -424,6 +462,7 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 
 	post, err = server.DataStore.UpdatePostStatus(ctx, arg)
 	if err != nil {
+		logger.LogError(err.Error(), "UpdatePostStatus")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -434,6 +473,7 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 func (server *Server) GetCommentsByPostID(ctx *gin.Context) {
 	var req GetCommentsByPostIDRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
+		logger.LogError(err.Error(), "GetCommentsByPostID")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -441,6 +481,7 @@ func (server *Server) GetCommentsByPostID(ctx *gin.Context) {
 	// convert postId string to uuid
 	postId, err := uuid.Parse(req.PostID)
 	if err != nil {
+		logger.LogError(err.Error(), "GetCommentsByPostID")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -448,6 +489,7 @@ func (server *Server) GetCommentsByPostID(ctx *gin.Context) {
 	// find post
 	_, err = server.DataStore.GetPostById(ctx, postId)
 	if err != nil {
+		logger.LogError(err.Error(), "GetCommentsByPostID")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -458,6 +500,7 @@ func (server *Server) GetCommentsByPostID(ctx *gin.Context) {
 
 	comments, err := server.DataStore.GetCommentsByPostID(ctx, postId)
 	if err != nil {
+		logger.LogError(err.Error(), "GetCommentsByPostID")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -473,6 +516,7 @@ func (server *Server) GetCommentsByPostID(ctx *gin.Context) {
 func (server *Server) DeleteComment(ctx *gin.Context) {
 	var req DeleteCommentByIDRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
+		logger.LogError(err.Error(), "DeleteComment")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -480,6 +524,7 @@ func (server *Server) DeleteComment(ctx *gin.Context) {
 	// convert commentId string to uuid
 	commentId, err := uuid.Parse(req.ID)
 	if err != nil {
+		logger.LogError(err.Error(), "DeleteComment")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -487,6 +532,7 @@ func (server *Server) DeleteComment(ctx *gin.Context) {
 	// find the comment
 	comment, err := server.DataStore.GetCommentByID(ctx, commentId)
 	if err != nil {
+		logger.LogError(err.Error(), "DeleteComment")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -498,17 +544,20 @@ func (server *Server) DeleteComment(ctx *gin.Context) {
 	// get auth payload
 	authenticationPayload := server.GetAuthPayload(ctx)
 	if authenticationPayload == nil {
+		logger.LogError("authentication payload is nil", "DeleteComment")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != comment.Username {
+		logger.LogError("authentication payload username does not match comment username", "DeleteComment")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	err = server.DataStore.DeleteCommentByID(ctx, commentId)
 	if err != nil {
+		logger.LogError(err.Error(), "DeleteComment")
 		server.InternalServerError(ctx)
 		return
 	}
@@ -519,6 +568,7 @@ func (server *Server) DeleteComment(ctx *gin.Context) {
 func (server *Server) DeletePost(ctx *gin.Context) {
 	var req DeletePostRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
+		logger.LogError(err.Error(), "DeletePost")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -526,6 +576,7 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 	// convert postId string to uuid
 	postId, err := uuid.Parse(req.ID)
 	if err != nil {
+		logger.LogError(err.Error(), "DeletePost")
 		server.BadRequestError(ctx)
 		return
 	}
@@ -533,6 +584,7 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 	// find the post
 	post, err := server.DataStore.GetPostById(ctx, postId)
 	if err != nil {
+		logger.LogError(err.Error(), "DeletePost")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -544,11 +596,13 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 	// get auth payload
 	authenticationPayload := server.GetAuthPayload(ctx)
 	if authenticationPayload == nil {
+		logger.LogError("authentication payload is nil", "DeletePost")
 		server.UnauthorizedError(ctx)
 		return
 	}
 
 	if authenticationPayload.Username != post.Username {
+		logger.LogError("authentication payload username does not match post username", "DeletePost")
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -556,6 +610,7 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 	// Delete all comments by postID
 	comments, err := server.DataStore.GetCommentsByPostID(ctx, postId)
 	if err != nil {
+		logger.LogError(err.Error(), "DeletePost")
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
@@ -566,6 +621,7 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 	for _, comment := range comments {
 		err = server.DataStore.DeleteCommentByID(ctx, comment.ID)
 		if err != nil {
+			logger.LogError(err.Error(), "DeletePost")
 			server.InternalServerError(ctx)
 			return
 		}
@@ -573,6 +629,7 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 
 	err = server.DataStore.DeletePostByID(ctx, postId)
 	if err != nil {
+		logger.LogError(err.Error(), "DeletePost")
 		server.InternalServerError(ctx)
 		return
 	}
