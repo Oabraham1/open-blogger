@@ -103,11 +103,31 @@ func TestUserCRUDOperations(t *testing.T) {
 	require.NotEqual(t, posts[0].Body, updatedPost.Body)
 
 	/* Teardown */
-	// Delete all posts
+
+	// Delete all comments by user
+	comments, err := testStore.GetCommentsByUserName(context.Background(), user.Username)
+	require.NoError(t, err)
+	for _, comment := range comments {
+		err = testStore.DeleteCommentByID(context.Background(), comment.ID)
+		require.NoError(t, err)
+	}
+
+	// Delete all posts by user
 	for _, post := range posts {
 		err = testStore.DeletePostByID(context.Background(), post.ID)
 		require.NoError(t, err)
 	}
+
+	// Find all user sessions
+	sessions, err := testStore.GetUserSessionsByUsername(context.Background(), user.Username)
+	require.NoError(t, err)
+
+	// Delete all user sessions
+	for _, session := range sessions {
+		err = testStore.DeleteSessionById(context.Background(), session.ID)
+		require.NoError(t, err)
+	}
+
 	// Delete user
 	err = testStore.DeleteUserAccount(context.Background(), user.Username)
 	require.NoError(t, err)

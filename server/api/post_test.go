@@ -70,10 +70,6 @@ func TestCreatePost(t *testing.T) {
 					Status:   post.Status,
 				}
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1).
-					Return(user, nil)
-				store.EXPECT().
 					CreateNewPost(gomock.Any(), arg).
 					Times(1).
 					Return(post, nil)
@@ -101,9 +97,6 @@ func TestCreatePost(t *testing.T) {
 					Status:   post.Status,
 				}
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(0)
-				store.EXPECT().
 					CreateNewPost(gomock.Any(), arg).
 					Times(0)
 			},
@@ -112,28 +105,24 @@ func TestCreatePost(t *testing.T) {
 			},
 		},
 		{
-			name: "Incorrect Username",
+			name: "Invalid Username",
 			body: gin.H{
 				"title":    post.Title,
 				"body":     post.Body,
 				"category": post.Category,
-				"username": user.Username,
+				"username": "$",
 				"status":   post.Status,
 			},
 			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
-				addAuth(t, request, authenticator, authorizationTypeBearer, "incorrectUserName", time.Minute)
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
 			},
 			buildStubs: func(store *mockdb.MockStore) {
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1).
-					Return(user, nil)
 				store.EXPECT().
 					CreateNewPost(gomock.Any(), gomock.Any()).
 					Times(0)
 			},
 			checkResponse: func(recorder *httptest.ResponseRecorder) {
-				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
 			},
 		},
 		{
@@ -149,9 +138,6 @@ func TestCreatePost(t *testing.T) {
 				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
 			},
 			buildStubs: func(store *mockdb.MockStore) {
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(0)
 				store.EXPECT().
 					CreateNewPost(gomock.Any(), gomock.Any()).
 					Times(0)
@@ -182,28 +168,24 @@ func TestCreatePost(t *testing.T) {
 			},
 		},
 		{
-			name: "User Not Found",
+			name: "Writing Post to Another User's Account",
 			body: gin.H{
 				"title":    post.Title,
 				"body":     post.Body,
 				"category": post.Category,
-				"username": post.Username,
+				"username": "anotherUser",
 				"status":   post.Status,
 			},
 			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
-				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+				addAuth(t, request, authenticator, authorizationTypeBearer, post.Username, time.Minute)
 			},
 			buildStubs: func(store *mockdb.MockStore) {
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1).
-					Return(db.User{}, util.ErrRecordNotFound)
 				store.EXPECT().
 					CreateNewPost(gomock.Any(), gomock.Any()).
 					Times(0)
 			},
 			checkResponse: func(recorder *httptest.ResponseRecorder) {
-				require.Equal(t, http.StatusNotFound, recorder.Code)
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
 			},
 		},
 	}
@@ -266,10 +248,6 @@ func TestCreateNewComment(t *testing.T) {
 					PostID:   comment.PostID,
 				}
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1).
-					Return(user, nil)
-				store.EXPECT().
 					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
 					Times(1).
 					Return(post, nil)
@@ -297,9 +275,6 @@ func TestCreateNewComment(t *testing.T) {
 					PostID:   comment.PostID,
 				}
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(0)
-				store.EXPECT().
 					CreateNewComment(gomock.Any(), arg).
 					Times(0)
 			},
@@ -318,10 +293,6 @@ func TestCreateNewComment(t *testing.T) {
 				addAuth(t, request, authenticator, authorizationTypeBearer, "incorrectUserName", time.Minute)
 			},
 			buildStubs: func(store *mockdb.MockStore) {
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1).
-					Return(user, nil)
 				store.EXPECT().
 					CreateNewComment(gomock.Any(), gomock.Any()).
 					Times(0)
@@ -347,42 +318,9 @@ func TestCreateNewComment(t *testing.T) {
 					PostID:   comment.PostID,
 				}
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1).
-					Return(user, nil)
-				store.EXPECT().
 					GetPostById(gomock.Any(), invalidPostId).
 					Times(1).
 					Return(db.Post{}, util.ErrRecordNotFound)
-				store.EXPECT().
-					CreateNewComment(gomock.Any(), arg).
-					Times(0).
-					Return(db.Comment{}, util.ErrRecordNotFound)
-			},
-			checkResponse: func(recorder *httptest.ResponseRecorder) {
-				require.Equal(t, http.StatusNotFound, recorder.Code)
-			},
-		},
-		{
-			name: "User Not Found",
-			body: gin.H{
-				"body":     comment.Body,
-				"username": comment.Username,
-				"post_id":  comment.PostID,
-			},
-			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
-				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
-			},
-			buildStubs: func(store *mockdb.MockStore) {
-				arg := db.CreateNewCommentParams{
-					Body:     comment.Body,
-					Username: comment.Username,
-					PostID:   comment.PostID,
-				}
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1).
-					Return(db.User{}, util.ErrRecordNotFound)
 				store.EXPECT().
 					CreateNewComment(gomock.Any(), arg).
 					Times(0).
@@ -593,7 +531,7 @@ func TestGetPostById(t *testing.T) {
 	}
 }
 
-func TestGetPostByUserName(t *testing.T) {
+func TestGetPublishedPostsByUserName(t *testing.T) {
 	user, _ := generateDummyUser(t)
 	post := generateDummyPost(t, user)
 	post.Status = "published"
@@ -697,10 +635,139 @@ func TestGetPostByUserName(t *testing.T) {
 			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder()
 
-			url := fmt.Sprintf("/api/post/getByUsername/%s", tc.username)
+			url := fmt.Sprintf("/api/post/getPublishedByUsername/%s", tc.username)
 			request, err := http.NewRequest(http.MethodGet, url, nil)
 			require.NoError(t, err)
 
+			server.Router.ServeHTTP(recorder, request)
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+func TestGetDraftPostsByUserName(t *testing.T) {
+	user, _ := generateDummyUser(t)
+	post := generateDummyPost(t, user)
+	post.Status = "draft"
+	post.LastModified = time.Now().Format("2006-01-02 15:04:05")
+
+	testCases := []struct {
+		name               string
+		username           string
+		setUpAuthenticator func(t *testing.T, request *http.Request, authenticator auth.Authenticator)
+		buildStubs         func(store *mockdb.MockStore)
+		checkResponse      func(recoder *httptest.ResponseRecorder)
+	}{
+		{
+			name:     "OK",
+			username: post.Username,
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostsByUserName(gomock.Any(), gomock.Eq(post.Username)).
+					Times(1).
+					Return([]db.Post{post}, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var posts []PostResponse
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &posts)
+				require.NoError(t, err)
+				require.Equal(t, post.Body, posts[0].Body)
+			},
+		},
+		{
+			name:               "Unauthorized",
+			username:           post.Username,
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostsByUserName(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name:     "Accessing Another User's Drafts",
+			username: post.Username,
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, "anotherUser", time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostsByUserName(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name:     "Invalid Username",
+			username: "$",
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostsByUserName(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:     "No Posts Found",
+			username: post.Username,
+			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
+				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetPostsByUserName(gomock.Any(), gomock.Eq(post.Username)).
+					Times(1).
+					Return([]db.Post{}, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				var posts []db.Post
+
+				data, err := io.ReadAll(recorder.Body)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(data, &posts)
+				require.NoError(t, err)
+				require.Equal(t, len([]db.Post{}), len(posts))
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := newTestServer(t, store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/api/post/getDraftsByUsername/%s", tc.username)
+			request, err := http.NewRequest(http.MethodGet, url, nil)
+			require.NoError(t, err)
+
+			tc.setUpAuthenticator(t, request, server.Authenticator)
 			server.Router.ServeHTTP(recorder, request)
 			tc.checkResponse(recorder)
 		})
@@ -738,10 +805,6 @@ func TestUpdatePostBody(t *testing.T) {
 					LastModified: post.LastModified,
 				}
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1).
-					Return(user, nil)
-				store.EXPECT().
 					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
 					Times(1).
 					Return(post, nil)
@@ -777,9 +840,6 @@ func TestUpdatePostBody(t *testing.T) {
 					ID:       post.ID,
 				}
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(0)
-				store.EXPECT().
 					UpdatePostBody(gomock.Any(), arg).
 					Times(0)
 			},
@@ -803,10 +863,6 @@ func TestUpdatePostBody(t *testing.T) {
 					Username: post.Username,
 					ID:       post.ID,
 				}
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
-					Times(1).
-					Return(user, nil)
 				store.EXPECT().
 					UpdatePostBody(gomock.Any(), arg).
 					Times(0)
@@ -899,10 +955,6 @@ func TestUpdatePostStatus(t *testing.T) {
 					Status:      db.StatusPublished,
 				}
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
-					Times(1).
-					Return(user, nil)
-				store.EXPECT().
 					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
 					Times(1).
 					Return(post, nil)
@@ -947,9 +999,6 @@ func TestUpdatePostStatus(t *testing.T) {
 					Status:      db.StatusPublished,
 				}
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
-					Times(0)
-				store.EXPECT().
 					UpdatePostStatus(gomock.Any(), arg).
 					Times(0)
 			},
@@ -973,10 +1022,6 @@ func TestUpdatePostStatus(t *testing.T) {
 					PublishedAt: post.PublishedAt,
 					Status:      db.StatusPublished,
 				}
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
-					Times(1).
-					Return(user, nil)
 				store.EXPECT().
 					UpdatePostStatus(gomock.Any(), arg).
 					Times(0)
@@ -1026,10 +1071,6 @@ func TestUpdatePostStatus(t *testing.T) {
 					Status:      db.StatusPublished,
 				}
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
-					Times(1).
-					Return(user, nil)
-				store.EXPECT().
 					GetPostById(gomock.Any(), gomock.Eq(invalidPostId)).
 					Times(1).
 					Return(db.Post{}, util.ErrRecordNotFound)
@@ -1037,28 +1078,6 @@ func TestUpdatePostStatus(t *testing.T) {
 					UpdatePostStatus(gomock.Any(), arg).
 					Times(0).
 					Return(db.Post{}, util.ErrRecordNotFound)
-			},
-			checkResponse: func(recorder *httptest.ResponseRecorder) {
-				require.Equal(t, http.StatusNotFound, recorder.Code)
-			},
-		},
-		{
-			name: "User Not Found",
-			body: gin.H{
-				"username": "invalidUsername",
-				"post_id":  post.ID,
-			},
-			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {
-				addAuth(t, request, authenticator, authorizationTypeBearer, post.Username, time.Minute)
-			},
-			buildStubs: func(store *mockdb.MockStore) {
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq("invalidUsername")).
-					Times(1).
-					Return(db.User{}, util.ErrRecordNotFound)
-				store.EXPECT().
-					UpdatePostStatus(gomock.Any(), gomock.Any()).
-					Times(0)
 			},
 			checkResponse: func(recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusNotFound, recorder.Code)
@@ -1234,14 +1253,6 @@ func TestDeleteComment(t *testing.T) {
 					Times(1).
 					Return(comment, nil)
 				store.EXPECT().
-					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
-					Times(1).
-					Return(post, nil)
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1).
-					Return(user, nil)
-				store.EXPECT().
 					DeleteCommentByID(gomock.Any(), gomock.Eq(comment.ID)).
 					Times(1).
 					Return(nil)
@@ -1255,15 +1266,6 @@ func TestDeleteComment(t *testing.T) {
 			commentID:          comment.ID.String(),
 			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {},
 			buildStubs: func(store *mockdb.MockStore) {
-				store.EXPECT().
-					GetCommentByID(gomock.Any(), gomock.Eq(comment.ID)).
-					Times(0)
-				store.EXPECT().
-					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
-					Times(0)
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(0)
 				store.EXPECT().
 					DeleteCommentByID(gomock.Any(), gomock.Eq(comment.ID)).
 					Times(0)
@@ -1284,14 +1286,6 @@ func TestDeleteComment(t *testing.T) {
 					Times(1).
 					Return(comment, nil)
 				store.EXPECT().
-					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
-					Times(1).
-					Return(post, nil)
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(comment.Username)).
-					Times(1).
-					Return(user, nil)
-				store.EXPECT().
 					DeleteCommentByID(gomock.Any(), gomock.Eq(comment.ID)).
 					Times(0)
 			},
@@ -1306,15 +1300,6 @@ func TestDeleteComment(t *testing.T) {
 				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
 			},
 			buildStubs: func(store *mockdb.MockStore) {
-				store.EXPECT().
-					GetCommentByID(gomock.Any(), gomock.Any()).
-					Times(0)
-				store.EXPECT().
-					GetPostById(gomock.Any(), gomock.Any()).
-					Times(0)
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Any()).
-					Times(0)
 				store.EXPECT().
 					DeleteCommentByID(gomock.Any(), gomock.Any()).
 					Times(0)
@@ -1334,12 +1319,6 @@ func TestDeleteComment(t *testing.T) {
 					GetCommentByID(gomock.Any(), gomock.Eq(randomCommentId)).
 					Times(1).
 					Return(db.Comment{}, util.ErrRecordNotFound)
-				store.EXPECT().
-					GetPostById(gomock.Any(), gomock.Any()).
-					Times(0)
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Any()).
-					Times(0)
 				store.EXPECT().
 					DeleteCommentByID(gomock.Any(), gomock.Any()).
 					Times(0)
@@ -1398,10 +1377,6 @@ func TestDeletePost(t *testing.T) {
 					Times(1).
 					Return(post, nil)
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(1).
-					Return(user, nil)
-				store.EXPECT().
 					GetCommentsByPostID(gomock.Any(), gomock.Eq(post.ID)).
 					Times(1).
 					Return([]db.Comment{}, nil)
@@ -1419,12 +1394,6 @@ func TestDeletePost(t *testing.T) {
 			postID:             post.ID.String(),
 			setUpAuthenticator: func(t *testing.T, request *http.Request, authenticator auth.Authenticator) {},
 			buildStubs: func(store *mockdb.MockStore) {
-				store.EXPECT().
-					GetPostById(gomock.Any(), gomock.Eq(post.ID)).
-					Times(0)
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(user.Username)).
-					Times(0)
 				store.EXPECT().
 					DeletePostByID(gomock.Any(), gomock.Eq(post.ID)).
 					Times(0)
@@ -1445,10 +1414,6 @@ func TestDeletePost(t *testing.T) {
 					Times(1).
 					Return(post, nil)
 				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Eq(post.Username)).
-					Times(1).
-					Return(user, nil)
-				store.EXPECT().
 					DeletePostByID(gomock.Any(), gomock.Eq(post.ID)).
 					Times(0)
 			},
@@ -1463,12 +1428,6 @@ func TestDeletePost(t *testing.T) {
 				addAuth(t, request, authenticator, authorizationTypeBearer, user.Username, time.Minute)
 			},
 			buildStubs: func(store *mockdb.MockStore) {
-				store.EXPECT().
-					GetPostById(gomock.Any(), gomock.Any()).
-					Times(0)
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Any()).
-					Times(0)
 				store.EXPECT().
 					DeletePostByID(gomock.Any(), gomock.Any()).
 					Times(0)
@@ -1488,9 +1447,6 @@ func TestDeletePost(t *testing.T) {
 					GetPostById(gomock.Any(), gomock.Eq(randomPostId)).
 					Times(1).
 					Return(db.Post{}, util.ErrRecordNotFound)
-				store.EXPECT().
-					GetUserByUsername(gomock.Any(), gomock.Any()).
-					Times(0)
 				store.EXPECT().
 					DeletePostByID(gomock.Any(), gomock.Any()).
 					Times(0)

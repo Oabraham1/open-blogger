@@ -89,7 +89,8 @@ func (server *Server) setupRouter() {
 	authenticatedRoutes.POST("/api/post/create", server.CreateNewPost)
 	router.GET("/api/post/getByID/:id", server.GetPostById)
 	router.GET("/api/post/getByCategory/:category", server.GetPostsByCategory)
-	router.GET("/api/post/getByUsername/:username", server.GetPostsByUsername)
+	router.GET("/api/post/getPublishedByUsername/:username", server.GetPublishedPostsByUsername)
+	authenticatedRoutes.GET("/api/post/getDraftsByUsername/:username", server.GetDraftPostsByUsername)
 	authenticatedRoutes.PUT("/api/post/updateBody", server.UpdatePostBody)
 	authenticatedRoutes.PUT("/api/post/publish", server.UpdatePostStatus)
 	authenticatedRoutes.DELETE("/api/post/delete/:id", server.DeletePost)
@@ -97,6 +98,8 @@ func (server *Server) setupRouter() {
 	authenticatedRoutes.POST("/api/comment/create", server.CreateNewComment)
 	router.GET("/api/comment/getByPostID/:id", server.GetCommentsByPostID)
 	authenticatedRoutes.DELETE("/api/comment/delete/:id", server.DeleteComment)
+
+	router.POST("/api/token/renew", server.RenewTokenRequest)
 
 	server.Router = router
 }
@@ -108,4 +111,16 @@ func (server *Server) StartServer(address string) error {
 
 func errorResponse(err error) gin.H {
 	return gin.H{"error": err.Error()}
+}
+
+func (server *Server) GetAuthPayload(ctx *gin.Context) *auth.AuthPayload {
+	authorizationPayload, exists := ctx.Get(authorizationPayloadKey)
+	if !exists {
+		return nil
+	}
+	payload, ok := authorizationPayload.(*auth.AuthPayload)
+	if !ok {
+		return nil
+	}
+	return payload
 }

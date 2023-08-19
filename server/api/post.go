@@ -2,10 +2,8 @@ package api
 
 import (
 	"errors"
-	"net/http"
 	"time"
 
-	"github.com/Oabraham1/open-blogger/server/auth"
 	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
 	"github.com/Oabraham1/open-blogger/server/util"
 	"github.com/gin-gonic/gin"
@@ -15,7 +13,7 @@ import (
 type CreatePostRequest struct {
 	Title    string `json:"title" binding:"required"`
 	Body     string `json:"body" binding:"required"`
-	UserName string `json:"username" binding:"required,alphanum"`
+	Username string `json:"username" binding:"required,alphanum"`
 	Status   string `json:"status" binding:"required,oneof=draft published"`
 	Category string `json:"category" binding:"required"`
 }
@@ -23,7 +21,7 @@ type CreatePostRequest struct {
 type CreateNewCommentRequest struct {
 	PostID   string `json:"post_id" binding:"required"`
 	Body     string `json:"body" binding:"required"`
-	UserName string `json:"username" binding:"required,alphanum"`
+	Username string `json:"username" binding:"required,alphanum"`
 }
 
 type GetPostByIDRequest struct {
@@ -41,12 +39,12 @@ type GetPostsByUsernameRequest struct {
 type UpdatePostBodyRequest struct {
 	ID       string `json:"post_id" binding:"required"`
 	Body     string `json:"body" binding:"required"`
-	UserName string `json:"username" binding:"required,alphanum"`
+	Username string `json:"username" binding:"required,alphanum"`
 }
 
 type UpdatePostStatusRequest struct {
 	ID       string `json:"post_id" binding:"required"`
-	UserName string `json:"username" binding:"required,alphanum"`
+	Username string `json:"username" binding:"required,alphanum"`
 }
 
 type GetCommentsByPostIDRequest struct {
@@ -65,7 +63,7 @@ type PostResponse struct {
 	ID           string `json:"id"`
 	Title        string `json:"title"`
 	Body         string `json:"body"`
-	UserName     string `json:"username"`
+	Username     string `json:"username"`
 	Status       string `json:"status"`
 	Category     string `json:"category"`
 	LastModified string `json:"last_modified"`
@@ -76,7 +74,7 @@ type CommentResponse struct {
 	ID        string `json:"id"`
 	PostID    string `json:"post_id"`
 	Body      string `json:"body"`
-	UserName  string `json:"username"`
+	Username  string `json:"username"`
 	CreatedAt string `json:"commented_at"`
 }
 
@@ -85,7 +83,7 @@ func GetPostResponse(post db.Post) PostResponse {
 		ID:           post.ID.String(),
 		Title:        post.Title,
 		Body:         post.Body,
-		UserName:     post.Username,
+		Username:     post.Username,
 		Status:       string(post.Status),
 		Category:     post.Category,
 		LastModified: post.LastModified,
@@ -98,7 +96,7 @@ func GetCommentResponse(comment db.Comment) CommentResponse {
 		ID:        comment.ID.String(),
 		PostID:    comment.PostID.String(),
 		Body:      comment.Body,
-		UserName:  comment.Username,
+		Username:  comment.Username,
 		CreatedAt: comment.CreatedAt,
 	}
 }
@@ -110,34 +108,14 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 		return
 	}
 
-	user, err := server.DataStore.GetUserByUsername(ctx, req.UserName)
-	if err != nil {
-		if errors.Is(err, util.ErrRecordNotFound) {
-			server.NotFoundError(ctx)
-			return
-		}
-		server.InternalServerError(ctx)
-		return
-	}
-
-	if user.Username != req.UserName {
-		server.BadRequestError(ctx)
-		return
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			server.UnauthorizedError(ctx)
-		}
-	}()
-
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
-	if !ok {
+	// get auth payload
+	authenticationPayload := server.GetAuthPayload(ctx)
+	if authenticationPayload == nil {
 		server.UnauthorizedError(ctx)
 		return
 	}
 
-	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.UserName {
+	if authenticationPayload.Username != req.Username {
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -152,7 +130,7 @@ func (server *Server) CreateNewPost(ctx *gin.Context) {
 	arg := db.CreateNewPostParams{
 		Title:    req.Title,
 		Body:     req.Body,
-		Username: req.UserName,
+		Username: req.Username,
 		Status:   dbStatus,
 		Category: req.Category,
 	}
@@ -177,34 +155,14 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 		return
 	}
 
-	user, err := server.DataStore.GetUserByUsername(ctx, req.UserName)
-	if err != nil {
-		if errors.Is(err, util.ErrRecordNotFound) {
-			server.NotFoundError(ctx)
-			return
-		}
-		server.InternalServerError(ctx)
-		return
-	}
-
-	if user.Username != req.UserName {
-		server.BadRequestError(ctx)
-		return
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			server.UnauthorizedError(ctx)
-		}
-	}()
-
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
-	if !ok {
+	// get auth payload
+	authenticationPayload := server.GetAuthPayload(ctx)
+	if authenticationPayload == nil {
 		server.UnauthorizedError(ctx)
 		return
 	}
 
-	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.UserName {
+	if authenticationPayload.Username != req.Username {
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -230,7 +188,7 @@ func (server *Server) CreateNewComment(ctx *gin.Context) {
 	arg := db.CreateNewCommentParams{
 		PostID:   postId,
 		Body:     req.Body,
-		Username: req.UserName,
+		Username: req.Username,
 	}
 
 	comment, err := server.DataStore.CreateNewComment(ctx, arg)
@@ -291,7 +249,7 @@ func (server *Server) GetPostById(ctx *gin.Context) {
 	server.ReturnOK(ctx, GetPostResponse(post))
 }
 
-func (server *Server) GetPostsByUsername(ctx *gin.Context) {
+func (server *Server) GetPublishedPostsByUsername(ctx *gin.Context) {
 	var req GetPostsByUsernameRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
 		server.BadRequestError(ctx)
@@ -317,10 +275,50 @@ func (server *Server) GetPostsByUsername(ctx *gin.Context) {
 
 	var rsp []PostResponse
 	for _, post := range posts {
-		rsp = append(rsp, GetPostResponse(post))
+		if post.Status == db.StatusPublished {
+			rsp = append(rsp, GetPostResponse(post))
+		}
 	}
 
-	ctx.JSON(http.StatusOK, rsp)
+	server.ReturnOK(ctx, rsp)
+}
+
+func (server *Server) GetDraftPostsByUsername(ctx *gin.Context) {
+	var req GetPostsByUsernameRequest
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		server.BadRequestError(ctx)
+		return
+	}
+
+	// get auth payload
+	authenticationPayload := server.GetAuthPayload(ctx)
+	if authenticationPayload == nil {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
+	if authenticationPayload.Username != req.Username {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
+	posts, err := server.DataStore.GetPostsByUserName(ctx, req.Username)
+	if err != nil {
+		if errors.Is(err, util.ErrRecordNotFound) {
+			server.NotFoundError(ctx)
+			return
+		}
+		server.InternalServerError(ctx)
+		return
+	}
+
+	var rsp []PostResponse
+	for _, post := range posts {
+		if post.Status == db.StatusDraft {
+			rsp = append(rsp, GetPostResponse(post))
+		}
+	}
+	server.ReturnOK(ctx, rsp)
 }
 
 func (server *Server) UpdatePostBody(ctx *gin.Context) {
@@ -330,28 +328,18 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 		return
 	}
 
-	user, err := server.DataStore.GetUserByUsername(ctx, req.UserName)
-	if err != nil {
-		server.InternalServerError(ctx)
-		return
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			server.UnauthorizedError(ctx)
-		}
-	}()
-
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
-	if !ok {
+	// get auth payload
+	authenticationPayload := server.GetAuthPayload(ctx)
+	if authenticationPayload == nil {
 		server.UnauthorizedError(ctx)
 		return
 	}
 
-	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.UserName {
+	if authenticationPayload.Username != req.Username {
 		server.UnauthorizedError(ctx)
 		return
 	}
+
 	// convert postId string to uuid
 	postId, err := uuid.Parse(req.ID)
 	if err != nil {
@@ -365,7 +353,7 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 		return
 	}
 
-	if post.Username != req.UserName || authenticationPayload.Username != post.Username {
+	if authenticationPayload.Username != post.Username {
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -373,7 +361,7 @@ func (server *Server) UpdatePostBody(ctx *gin.Context) {
 	arg := db.UpdatePostBodyParams{
 		ID:           postId,
 		Body:         req.Body,
-		Username:     req.UserName,
+		Username:     req.Username,
 		LastModified: time.Now().Format("2006-01-02 15:04:05"),
 	}
 
@@ -393,29 +381,14 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 		return
 	}
 
-	user, err := server.DataStore.GetUserByUsername(ctx, req.UserName)
-	if err != nil {
-		if errors.Is(err, util.ErrRecordNotFound) {
-			server.NotFoundError(ctx)
-			return
-		}
-		server.InternalServerError(ctx)
-		return
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			server.UnauthorizedError(ctx)
-		}
-	}()
-
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
-	if !ok {
+	// get auth payload
+	authenticationPayload := server.GetAuthPayload(ctx)
+	if authenticationPayload == nil {
 		server.UnauthorizedError(ctx)
 		return
 	}
 
-	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.UserName {
+	if authenticationPayload.Username != req.Username {
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -437,7 +410,7 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 		return
 	}
 
-	if post.Username != req.UserName || authenticationPayload.Username != post.Username {
+	if authenticationPayload.Username != post.Username {
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -445,7 +418,7 @@ func (server *Server) UpdatePostStatus(ctx *gin.Context) {
 	arg := db.UpdatePostStatusParams{
 		ID:          postId,
 		Status:      db.StatusPublished,
-		Username:    req.UserName,
+		Username:    req.Username,
 		PublishedAt: time.Now().Format("2006-01-02 15:04:05"),
 	}
 
@@ -522,41 +495,14 @@ func (server *Server) DeleteComment(ctx *gin.Context) {
 		return
 	}
 
-	// find the post
-	_, err = server.DataStore.GetPostById(ctx, comment.PostID)
-	if err != nil {
-		if errors.Is(err, util.ErrRecordNotFound) {
-			server.NotFoundError(ctx)
-			return
-		}
-		server.InternalServerError(ctx)
-		return
-	}
-
-	// find the user
-	user, err := server.DataStore.GetUserByUsername(ctx, comment.Username)
-	if err != nil {
-		if errors.Is(err, util.ErrRecordNotFound) {
-			server.NotFoundError(ctx)
-			return
-		}
-		server.InternalServerError(ctx)
-		return
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			server.UnauthorizedError(ctx)
-		}
-	}()
-
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
-	if !ok {
+	// get auth payload
+	authenticationPayload := server.GetAuthPayload(ctx)
+	if authenticationPayload == nil {
 		server.UnauthorizedError(ctx)
 		return
 	}
 
-	if authenticationPayload.Username != user.Username || authenticationPayload.Username != comment.Username {
+	if authenticationPayload.Username != comment.Username {
 		server.UnauthorizedError(ctx)
 		return
 	}
@@ -595,30 +541,14 @@ func (server *Server) DeletePost(ctx *gin.Context) {
 		return
 	}
 
-	// find the user
-	user, err := server.DataStore.GetUserByUsername(ctx, post.Username)
-	if err != nil {
-		if errors.Is(err, util.ErrRecordNotFound) {
-			server.NotFoundError(ctx)
-			return
-		}
-		server.InternalServerError(ctx)
-		return
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			server.UnauthorizedError(ctx)
-		}
-	}()
-
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
-	if !ok {
+	// get auth payload
+	authenticationPayload := server.GetAuthPayload(ctx)
+	if authenticationPayload == nil {
 		server.UnauthorizedError(ctx)
 		return
 	}
 
-	if authenticationPayload.Username != user.Username || authenticationPayload.Username != post.Username {
+	if authenticationPayload.Username != post.Username {
 		server.UnauthorizedError(ctx)
 		return
 	}

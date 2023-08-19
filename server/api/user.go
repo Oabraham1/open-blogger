@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Oabraham1/open-blogger/server/auth"
 	db "github.com/Oabraham1/open-blogger/server/db/sqlc"
 	"github.com/Oabraham1/open-blogger/server/util"
 	"github.com/gin-gonic/gin"
@@ -166,26 +165,21 @@ func (server *Server) GetUserByUsername(ctx *gin.Context) {
 		return
 	}
 
+	// get auth payload
+	authenticationPayload := server.GetAuthPayload(ctx)
+	if authenticationPayload == nil {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
+	if authenticationPayload.Username != req.Username {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		server.InternalServerError(ctx)
-		return
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			server.UnauthorizedError(ctx)
-		}
-	}()
-
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
-	if !ok {
-		server.UnauthorizedError(ctx)
-		return
-	}
-
-	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.Username {
-		server.UnauthorizedError(ctx)
 		return
 	}
 
@@ -200,30 +194,25 @@ func (server *Server) UpdateUserInterests(ctx *gin.Context) {
 		return
 	}
 
-	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
+	// get auth payload
+	authenticationPayload := server.GetAuthPayload(ctx)
+	if authenticationPayload == nil {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
+	if authenticationPayload.Username != req.Username {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
+	_, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		if errors.Is(err, util.ErrRecordNotFound) {
 			server.NotFoundError(ctx)
 			return
 		}
 		server.InternalServerError(ctx)
-		return
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			server.UnauthorizedError(ctx)
-		}
-	}()
-
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
-	if !ok {
-		server.UnauthorizedError(ctx)
-		return
-	}
-
-	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.Username {
-		server.UnauthorizedError(ctx)
 		return
 	}
 
@@ -248,6 +237,18 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 		return
 	}
 
+	// get auth payload
+	authenticationPayload := server.GetAuthPayload(ctx)
+	if authenticationPayload == nil {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
+	if authenticationPayload.Username != req.Username {
+		server.UnauthorizedError(ctx)
+		return
+	}
+
 	user, err := server.DataStore.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		if errors.Is(err, util.ErrRecordNotFound) {
@@ -255,23 +256,6 @@ func (server *Server) DeleteUserAccount(ctx *gin.Context) {
 			return
 		}
 		server.InternalServerError(ctx)
-		return
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			server.UnauthorizedError(ctx)
-		}
-	}()
-
-	authenticationPayload, ok := ctx.MustGet(authorizationPayloadKey).(*auth.AuthPayload)
-	if !ok {
-		server.UnauthorizedError(ctx)
-		return
-	}
-
-	if authenticationPayload.Username != user.Username || authenticationPayload.Username != req.Username {
-		server.UnauthorizedError(ctx)
 		return
 	}
 
