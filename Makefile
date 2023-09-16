@@ -58,3 +58,4 @@ test-client-unit:
 
 test-client-int:
 	cd client && npm run test:integration
+	
